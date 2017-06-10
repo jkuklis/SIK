@@ -149,6 +149,14 @@ void eliminate_player(uint32_t player_id, game_state &gs, server_params &sp) {
 }
 
 
+void end_game(game_state &gs, server_params &sp) {
+    event ev;
+
+    ev = event_game_over(gs.all_events.size(), sp);
+
+    gs.all_events.push_back(ev);
+}
+
 
 game_state new_game(std::vector<std::string> player_names, server_params &sp) {
 
@@ -175,6 +183,11 @@ game_state new_game(std::vector<std::string> player_names, server_params &sp) {
             eliminate_player(player.id, gs, sp);
 
             it = gs.snakes.erase(it);
+
+            if (gs.snakes.size() <= 1) {
+
+                end_game(gs, sp);
+            }
         }
     }
 
@@ -228,6 +241,10 @@ void round(game_state &gs, server_params &sp, std::vector<int8_t> &dir_table) {
 
             it = gs.snakes.erase(it);
 
+            if (gs.snakes.size() <= 1) {
+
+                end_game(gs, sp);
+            }
         }
     }
 }

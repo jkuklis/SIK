@@ -12,7 +12,7 @@
 // string copy constructor
 
 
-uint64_t current_ms() {
+uint64_t current_us() {
     timeval start;
     uint64_t result;
 

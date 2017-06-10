@@ -106,6 +106,6 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y);
 }
 */
 
-uint64_t current_ms();
+uint64_t current_us();
 
 #endif /* SIKTACKA_COMMUNICATION_SERVER */

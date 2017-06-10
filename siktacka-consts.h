@@ -44,6 +44,9 @@ const uint32_t GAME_OVER = 3;
 const uint32_t MAX_UDP_DATA = 512;
 const uint32_t MAX_PLAYERS = 42;
 
+const uint32_t MAX_CS_DATAGRAM = 77;
+const uint32_t BUFFER_SIZE = 80;
+
 #define POLY 0xedb88320
 #define PI 3.14159265
 
