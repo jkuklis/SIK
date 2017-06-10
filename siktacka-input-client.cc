@@ -14,44 +14,6 @@ void print_client_params(client_params cp) {
         << " " << cp.ui_host << " " << cp.ui_port << std::endl;
 }
 
-
-bool check_player_name(std::string str, client_params &cp) {
-    if (str.length() < MIN_LENGTH) {
-        std::cout << "Player name too short\n";
-        return false;
-    }
-    if (str.length() > MAX_LENGTH) {
-        std::cout << "Player name too long\n";
-        return false;
-    }
-    bool correct = true;
-
-    for (char c : str) {
-        if (c < 33 || 126 < c) {
-            correct = false;
-            std::cout << "Wrong character in player name\n";
-            break;
-        }
-    }
-
-    cp.player_name = str;
-    return correct;
-}
-
-std::vector<std::string> split_to_vector(std::string str, std::string delimiter) {
-    std::vector<std::string> parts;
-    size_t last = 0;
-    size_t next = 0;
-
-    while ((next = str.find(delimiter, last)) != std::string::npos) {
-        parts.push_back(str.substr(last, next - last));
-        last = next + 1;
-    }
-    parts.push_back(str.substr(last));
-
-    return parts;
-}
-
 bool get_port(std::string port_str, client_params &cp, bool server) {
     int port;
     constraints_info constr;
@@ -86,7 +48,7 @@ bool check_host(std::string str, client_params &cp, bool server) {
         if (!get_port(port_str, cp, server))
             return false;
     }
-    
+
     if (str[str.length() - 1] == '.') {
         std::cout << "IP address ends with additional dot\n";
         return false;
@@ -113,6 +75,8 @@ bool fill_client_params(client_params &cp, int argc, char *argv[]) {
 
     if (!check_player_name(argv[1], cp) || !check_host(argv[2], cp, server))
         return false;
+
+    cp.player_name = argv[1];
 
     if (argc == 4 && !check_host(argv[3], cp, !server))
         return false;

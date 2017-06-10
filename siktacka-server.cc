@@ -11,6 +11,7 @@
 #include "siktacka-input-server.h"
 #include "siktacka-establish-server.h"
 #include "siktacka-communication-server.h"
+#include "siktacka-game-logic.h"
 
 int main(int argc, char *argv[]) {
     server_params sp;

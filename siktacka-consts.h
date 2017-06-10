@@ -33,9 +33,15 @@ const int MAX_LENGTH = 64;
 
 const int S6_ADDR_LEN = 16;
 
+const int MAX_EVENT_TYPE = 3;
 const int NEW_GAME = 0;
 const int PIXEL = 1;
 const int PLAYER_ELIMINATED = 2;
 const int GAME_OVER = 3;
+
+const int MAX_UDP_DATA = 512;
+const int MAX_PLAYERS = 42;
+
+#define POLY 0xedb88320
 
 #endif /* SIKTACKA_CONSTS */
