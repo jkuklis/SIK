@@ -88,7 +88,6 @@ T parse_number(std::string &str, uint32_t begin = 0,
     T result = 0;
 
     for (uint32_t i = 0; i < end - begin; i++) {
-
         index = (big_endian ? (begin + i) : (end - 1 - i));
 
         result <<= 8;

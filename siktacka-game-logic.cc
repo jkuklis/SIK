@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <string>
 #include <stdint.h>
@@ -8,7 +7,8 @@
 
 #include "siktacka-input-server.h"
 #include "siktacka-game-logic.h"
-#include "siktacka-consts"
+#include "siktacka-consts.h"
+#include "siktacka-communication-server.h"
 
 // TODO event arguments
 

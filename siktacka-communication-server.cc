@@ -41,25 +41,33 @@ uint32_t crc32(const unsigned char *buf, size_t len)
 
 
 uint32_t event_crc32(uint32_t len, uint32_t event_no, uint8_t event_type,
-            std::string event_data) {
+            std::string &event_data) {
 
     uint32_t result;
 
     std::string buf = "";
 
-    append_data<uint32_t>(len, buf, false);
-    append_data<uint32_t>(event_no, buf, false);
+    append_data<uint32_t>(len, buf);
+    append_data<uint32_t>(event_no, buf);
     //append_data<uint8_t>(event_type, buf, false);
     //append_data<std::string>(event_data, buf, false, len - 5)
     buf += (uint8_t) event_type;
     buf += event_data;
 
-    return crc32(buf, len + 4);
+    unsigned char buf_crc[4 + len];
+
+    for (uint32_t i = 0; i < 4 + len; i++) {
+        buf_crc[i] = (unsigned char) buf[i];
+    }
+
+    result = crc32(buf_crc, len + 4);
+
+    return result;
 }
 
 
 // TODO server_params should have a broadcaster class
-event event_new_game(std::vector<std::string> player_names, uint32_t event_no,
+event event_new_game(std::vector<std::string> &player_names, uint32_t event_no,
             server_params &sp) {
 
     uint32_t len;
@@ -71,7 +79,10 @@ event event_new_game(std::vector<std::string> player_names, uint32_t event_no,
 
     len = new_game_str(sp.width, sp.height, player_names, result.event_data);
 
-    result.len = len;
+    result.len = len + 5;
+
+    result.crc32 = event_crc32(result.len, result.event_no, result.event_type,
+                result.event_data);
 
     // TODO broadcast(sp.broadcaster);
 
@@ -79,18 +90,19 @@ event event_new_game(std::vector<std::string> player_names, uint32_t event_no,
 }
 
 
-event event_pixel(uint8_t id, uint32 x, uint32 y, uint32_t event_no,
+event event_pixel(uint8_t id, uint32_t x, uint32_t y, uint32_t event_no,
             server_params &sp) {
 
     event result;
+    uint32_t len;
 
-    result.event_no = event_no;
+    std::string event_data;
 
-    result.event_type = PIXEL;
+    event_data = pixel_str(id, x, y);
 
-    result.event_data = pixel_str(id, x, y);
+    len = 4 + 1 + 11;
 
-    result.len = 4 + 1 + 9;
+    result = event(len, event_no, PIXEL, event_data);
 
     // broadcast(sp.broadcaster);
 
@@ -102,16 +114,15 @@ event event_player_eliminated(uint8_t id, uint32_t event_no,
             server_params &sp) {
 
     event result;
+    uint32_t len;
 
-    result.event_no = event_no;
+    std::string event_data = "";
 
-    result.event_type = PLAYER_ELIMINATED;
+    event_data += id;
 
-    result.event_data = "";
+    len = 4 + 1 + 1;
 
-    result.event_data += id;
-
-    result.len = 4 + 1 + 1;
+    result = event(len, event_no, PLAYER_ELIMINATED, event_data);
 
     // broadcast(sp.broadcaster);
 
@@ -122,12 +133,11 @@ event event_player_eliminated(uint8_t id, uint32_t event_no,
 event event_game_over(uint32_t event_no, server_params &sp) {
 
     event result;
+    uint32_t len = 5;
 
-    result.event_no = event_no;
+    std::string event_data = "";
 
-    result.event_type = GAME_OVER;
-
-    result.event_data = "";
+    result = event(len, event_no, GAME_OVER, event_data);
 
     // broadcast(sp.broadcaster);
 
@@ -135,7 +145,7 @@ event event_game_over(uint32_t event_no, server_params &sp) {
 }
 
 
-std::string event_str(event ev) {
+std::string event_str(event &ev) {
 
     std::string result;
 
@@ -157,7 +167,7 @@ std::string event_str(event ev) {
 }
 
 
-uint32_t message_stc_str(message_stc msg, std::string &str,
+uint32_t message_stc_str(message_stc &msg, std::string &str,
             uint32_t first = 0) {
 
     uint32_t i;
@@ -175,8 +185,8 @@ uint32_t message_stc_str(message_stc msg, std::string &str,
         if (str.length() + ev_str.length() > MAX_UDP_DATA)
             break;
 
-        result += ' ';
-        result += event_str(ev);
+        str += ' ';
+        str += ev_str;
     }
 
     count = i - first;
@@ -185,7 +195,7 @@ uint32_t message_stc_str(message_stc msg, std::string &str,
 }
 
 
-std::string message_cts_str (message_cts msg) {
+std::string message_cts_str (message_cts &msg) {
 
     std::string result;
 
@@ -205,11 +215,11 @@ std::string message_cts_str (message_cts msg) {
 
 
 uint32_t new_game_str(uint32_t maxx, uint32_t maxy,
-            std::vector<std::string> player_names, std::string result) {
+            std::vector<std::string> &player_names, std::string &result) {
 
     result = "";
 
-    uint32_t len = 0;
+    uint32_t len = 10;
 
     append_data<uint32_t>(maxx, result);
     result += ' ';
@@ -251,19 +261,19 @@ bool event_from_str(event &ev, std::string &str) {
     // TODO
     // check, if len correct
 
-    uint32_t event_no = parse_number<uint32_t>(str, 4, 8);
+    uint32_t event_no = parse_number<uint32_t>(str, 5, 9);
 
-    uint8_t event_type = parse_number<uint8_t>(str, 8, 9);
+    uint8_t event_type = parse_number<uint8_t>(str, 10, 11);
 
     if (event_type > MAX_EVENT_TYPE)
         return false;
 
-    std::string event_data = std::string(str, 9, len - 5);
+    std::string event_data = std::string(str, 12, len - 5);
 
     // TODO
     // check, if correct names data
 
-    uint32_t crc32 = parse_number<uint32_t>(str, len, 4);
+    uint32_t crc32 = parse_number<uint32_t>(str, 4 + 4 + len, 4 + 4 + len + 4);
 
     ev = event(len, event_no, event_type, event_data);
 
@@ -281,6 +291,8 @@ bool message_stc_from_str(std::string &str, message_stc &msg) {
 
     parts = split_to_vector(str, ' ');
 
+    std::cout << parts.size();
+
     msg.game_id = parse_number<uint32_t>(parts[0]);
 
     // as long as correct messages
@@ -289,7 +301,7 @@ bool message_stc_from_str(std::string &str, message_stc &msg) {
             break;
         }
 
-        msg.push_back(ev);
+        msg.events.push_back(ev);
     }
 
     return true;
