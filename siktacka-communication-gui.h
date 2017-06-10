@@ -1,6 +1,8 @@
 #ifndef SIKTACKA_COMMUNICATION_GUI
 #define SIKTACKA_COMMUNICATION_GUI
 
+// TODO gui accepts names, not ids
+
 #include "string"
 
 #include "siktacka-communication-server.h"

@@ -109,9 +109,11 @@ std::vector<std::string> split_to_vector(std::string &str, char delimiter_char,
         parts.push_back(str.substr(last));
 
     } else {
+        len = str.size();
 
         for (uint32_t i = 0; i < len; i++) {
             if (str[i] == '\0') {
+
                 to_push = str.substr(last, i - last);
 
                 parts.push_back(to_push);

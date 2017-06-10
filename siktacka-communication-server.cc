@@ -100,7 +100,7 @@ event event_pixel(uint8_t id, uint32_t x, uint32_t y, uint32_t event_no,
 
     event_data = pixel_str(id, x, y);
 
-    len = 4 + 1 + 11;
+    len = 4 + 1 + 9;
 
     result = event(len, event_no, PIXEL, event_data);
 
@@ -150,16 +150,16 @@ std::string event_str(event &ev) {
     std::string result;
 
     append_data<uint32_t>(ev.len, result);
-    result += ' ';
+    //result += ' ';
 
     append_data<uint32_t>(ev.event_no, result);
-    result += ' ';
+    //result += ' ';
 
     result += ev.event_type;
-    result += ' ';
+    //result += ' ';
 
     result += ev.event_data;
-    result += ' ';
+    //result += ' ';
 
     append_data<uint32_t>(ev.crc32, result);
 
@@ -185,7 +185,7 @@ uint32_t message_stc_str(message_stc &msg, std::string &str,
         if (str.length() + ev_str.length() > MAX_UDP_DATA)
             break;
 
-        str += ' ';
+        //str += ' ';
         str += ev_str;
     }
 
@@ -200,13 +200,13 @@ std::string message_cts_str (message_cts &msg) {
     std::string result;
 
     append_data<uint64_t>(msg.session_id, result);
-    result += ' ';
+    //result += ' ';
 
     result += msg.turn_direction;
-    result += ' ';
+    //result += ' ';
 
     append_data<uint32_t>(msg.next_expected_event_no, result);
-    result += ' ';
+    //result += ' ';
 
     result += msg.player_name;
 
@@ -219,13 +219,13 @@ uint32_t new_game_str(uint32_t maxx, uint32_t maxy,
 
     result = "";
 
-    uint32_t len = 10;
+    uint32_t len = 8;
 
     append_data<uint32_t>(maxx, result);
-    result += ' ';
+    //result += ' ';
 
     append_data<uint32_t>(maxy, result);
-    result += ' ';
+    //result += ' ';
 
     for (std::string name : player_names) {
         result += name;
@@ -243,10 +243,10 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y) {
     std::string result;
 
     result += player_number;
-    result += ' ';
+    //result += ' ';
 
     append_data<uint32_t>(x, result);
-    result += ' ';
+    //result += ' ';
 
     append_data<uint32_t>(y, result);
 
@@ -254,31 +254,80 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y) {
 }
 
 
+bool correct_player_names(std::string &event_data) {
+
+    std::string tmp;
+
+    if (event_data.size() < 12)
+        return false;
+
+    tmp = event_data.substr(8);
+
+    std::vector<std::string> parts;
+
+    parts = split_to_vector(tmp, '\0');
+
+    if (parts.back() != "")
+        return false;
+
+    parts.pop_back();
+
+    for (std::string name : parts) {
+
+        if (!check_player_name(name, false))
+            return false;
+    }
+
+    return true;
+}
+
+
+bool correct_data(uint32_t len, uint8_t event_type, std::string &event_data) {
+    switch(event_type) {
+        case 0:
+            return correct_player_names(event_data);
+
+        case 1:
+            return (len == 14);
+
+        case 2:
+            return (len == 6);
+
+        case 3:
+            return (len == 5);
+
+        default:
+            return false;
+    }
+}
+
+
 bool event_from_str(event &ev, std::string &str) {
+
+    if (str.length() < 9)
+        return false;
+
 
     uint32_t len = parse_number<uint32_t>(str, 0, 4);
 
-    // TODO
-    // check, if len correct
+    //if (str.length() != len + 8)
+    //    return false;
 
-    uint32_t event_no = parse_number<uint32_t>(str, 5, 9);
+    uint32_t event_no = parse_number<uint32_t>(str, 4, 8);
 
-    uint8_t event_type = parse_number<uint8_t>(str, 10, 11);
+    uint8_t event_type = parse_number<uint8_t>(str, 8, 9);
 
-    if (event_type > MAX_EVENT_TYPE)
+    std::string event_data = std::string(str, 9, len - 5);
+
+    if (!correct_data(len, event_type, event_data))
         return false;
 
-    std::string event_data = std::string(str, 12, len - 5);
-
-    // TODO
-    // check, if correct names data
-
-    uint32_t crc32 = parse_number<uint32_t>(str, 4 + 4 + len, 4 + 4 + len + 4);
+    //uint32_t crc32 = parse_number<uint32_t>(str, 4 + len, 4 + len + 4);
 
     ev = event(len, event_no, event_type, event_data);
 
-    if (crc32 != ev.crc32)
-        return false;
+    //if (crc32 != ev.crc32)
+    //    return false;
 
     return true;
 }
@@ -287,22 +336,42 @@ bool event_from_str(event &ev, std::string &str) {
 bool message_stc_from_str(std::string &str, message_stc &msg) {
 
     event ev;
-    std::vector<std::string> parts;
+    uint32_t next = 4;
+    uint32_t size = str.size();
+    uint32_t len;
+    std::string event_str;
 
-    parts = split_to_vector(str, ' ');
+    if (str.size() < 4)
+        return false;
 
-    std::cout << parts.size();
+    msg.game_id = parse_number<uint32_t>(str, 0, 4);
 
-    msg.game_id = parse_number<uint32_t>(parts[0]);
+    while (next < size) {
 
-    // as long as correct messages
-    for (uint32_t i = 1; i < parts.size(); i++) {
-        if (!event_from_str(ev, parts[i])) {
+        len = parse_number<uint32_t>(str, next, next + 4);
+
+        event_str = std::string(str, next, len + 8);
+
+        if (event_str.length() != len + 8) {
+            return false;
+        }
+
+        if (!event_from_str(ev, event_str)) {
+            return false;
+        }
+
+        if (ev.crc32 != event_crc32(ev.len, ev.event_no, ev.event_type,
+                    ev.event_data)) {
             break;
         }
 
+        next += len + 8;
+
         msg.events.push_back(ev);
     }
+
+    if (next != size)
+        return false;
 
     return true;
 }
@@ -310,23 +379,19 @@ bool message_stc_from_str(std::string &str, message_stc &msg) {
 
 bool message_cts_from_str(std::string &str, message_cts &msg) {
 
-    std::vector<std::string> parts;
-
-    parts = split_to_vector(str, ' ');
-
-    if (parts.size() < 0 || parts.size() > 4)
+    if (str.length() < 13)
         return false;
 
-    msg.session_id = parse_number<uint64_t>(parts[0]);
+    msg.session_id = parse_number<uint64_t>(str, 0, 8);
 
-    msg.turn_direction = parse_number<int8_t>(parts[1]);
+    msg.turn_direction = parse_number<int8_t>(str, 8, 9);
 
     if (msg.turn_direction < -1 || msg.turn_direction > 1)
         return false;
 
-    msg.next_expected_event_no = parse_number<uint32_t>(parts[2]);
+    msg.next_expected_event_no = parse_number<uint32_t>(str, 9, 13);
 
-    msg.player_name = parts[3];
+    msg.player_name = str.substr(13);
 
     if (!check_player_name(msg.player_name)) {
         return false;

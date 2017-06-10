@@ -13,6 +13,8 @@
 #include "siktacka-communication-server.h"
 #include "siktacka-game-logic.h"
 
+// TODO final file should be siktacka_server
+
 int main(int argc, char *argv[]) {
     server_params sp;
     int sock;
