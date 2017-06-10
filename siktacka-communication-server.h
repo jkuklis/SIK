@@ -61,6 +61,7 @@ struct message_cts {
                 player_name(player_name) {}
 };
 
+// NOTE: event_no is useless, always 0 with new_game
 event event_new_game(std::vector<std::string> &player_names, uint32_t event_no,
             server_params &sp);
 
@@ -100,9 +101,10 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y);
 
 
 // should broadcast be there?
-void broadcast(event ev) {
+/* void broadcast(event ev) {
     // TODO
 }
+*/
 
 uint64_t current_ms();
 

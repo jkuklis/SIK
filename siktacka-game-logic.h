@@ -9,6 +9,8 @@
 #include <set>
 #include <deque>
 
+#include "siktacka-communication-server.h"
+
 struct spot {
     uint32_t x;
     uint32_t y;
@@ -41,13 +43,13 @@ struct snake {
 
 struct game_state {
     uint32_t game_id;
-    std::vector<snake> snakes;
+    std::deque<snake> snakes;
     std::vector<event> all_events;
     std::vector<std::vector<uint8_t> > map;
 
     game_state() {}
 
-    game_state(uint32 game_id, std::deque<snake> snakes,
+    game_state(uint32_t game_id, std::deque<snake> snakes,
         std::vector<event> all_events, std::vector<std::vector<uint8_t> > map) :
                 game_id(game_id),
                 snakes(snakes),
@@ -56,8 +58,9 @@ struct game_state {
 };
 
 
-//uint32_t next_rand(uint32_t rand);
-
 game_state new_game(std::vector<std::string> player_names, server_params &sp);
+
+void round(game_state &gs, server_params &sp, std::vector<int8_t> &dir_table);
+
 
 #endif /* SIKTACKA_GAME_SERVER */

@@ -1,151 +1,88 @@
 #include <vector>
+#include <algorithm>
+#include <utility>
+#include <iostream>
 
-#include "siktacka-communication-server.h"
 #include "siktacka-input.h"
 #include "siktacka-consts.h"
+#include "siktacka-communication-gui.h"
 
 // TODO check, if maxx etc have suitable length
 // TODO templete constraints, now ints
 
-bool get_value(std::string &data, uint32_t &value, constr_info &constr) {
 
-    bool result;
+bool decompose_players(std::string &player_names,
+            std::vector<std::string> &players) {
 
-    value = parse_number<uint32_t>(data);
+    players = split_to_vector(player_names, '\0');
 
-    result = checked_constraints(value, constr, false);
-
-    return result;
-}
-
-
-bool manage_value(std::string &data, std::string str, std::string name,
-            int min_value, int max_value) {
-    uint32_t value;
-    constraints constr;
-
-    if (data.length() != 4)
+    if (players.back() != "")
         return false;
 
-    constr = constraints(name, min_value, max_value);
+    players.pop_back();
 
-    if(!get_value(data, value, constr)
-        return false;
+    for (std::string name : players) {
 
-    append_value<uint32_t>(value, str);
-
-    return true;
-}
-
-
-bool append_players(std::string player_names, std::string &str) {
-
-    std::vector<std::string> parts;
-
-    parts = split_to_vector(player_names, '\0');
-
-    if (parts.size() > MAX_PLAYERS)
-        return false;
-
-    for (std::string name : parts) {
         if (!check_player_name(name, false) || name == "")
             return false;
     }
 
-    std::multiset<std::string> sorted_names (player_names.begin(),
-                player_names.end());
+    std::vector<std::string> sorted_names (players.begin(), players.end());
 
-    for (uint32_t i = 0; i < sorted_names.size(); i++) {
-        if (parts[i] != sorted_names[i])
+
+    std::sort(sorted_names.begin(), sorted_names.end());
+
+    for (uint32_t i = 0; i < players.size(); i++) {
+        if (players[i] != sorted_names[i])
             return false;
     }
 
-    for (std::string name : parts) {
-        str += name;
-        str += ' ';
-    }
+    return true;
+}
+
+
+bool decompose_new_game(std::string &event_data, uint32_t &maxx, uint32_t &maxy,
+            std::vector<std::string> &players) {
+
+    std::string player_names;
+
+    if (event_data.size() < 12)
+        return false;
+
+    maxx = parse_number<uint32_t>(event_data, 0, 4);
+    maxy = parse_number<uint32_t>(event_data, 4, 8);
+
+    if (maxx < MIN_WIDTH || maxx > MAX_WIDTH)
+        return false;
+
+    if (maxy < MIN_HEIGHT || maxy > MAX_HEIGHT)
+        return false;
+
+    player_names = event_data.substr(8);
+
+    if (!decompose_players(player_names, players))
+        return false;
 
     return true;
 }
 
 
-bool new_game_msg(std::string &event_data, std::string &str) {
+bool decompose_pixel(std::string &event_data, uint8_t &id,
+            uint32_t &x, uint32_t &y) {
 
-    std::vector<std::string> parts;
-
-    str = "NEW_GAME ";
-
-    parts = split_to_vector(event_data, ' ');
-
-    if (parts.size() != 3)
+    if (event_data.size() != 9)
         return false;
 
-    if (!manage_value(parts[0], str, "maxx", MIN_WIDTH, MAX_WIDTH))
-        return false;
-
-    if (!manage_value(parts[1], str, "maxy", MIN_HEIGHT, MAX_HEIGHT))
-        return false;
-
-    if (!append_players(parts[2], str))
-        return false;
+    id = parse_number<uint32_t>(event_data, 0, 1);
+    x = parse_number<uint32_t>(event_data, 1, 5);
+    y = parse_number<uint32_t>(event_data, 5, 9);
 
     return true;
 }
 
 
-bool pixel_msg(std::string &event_data, std::string &str) {
 
-    uint32_t x;
-    uint32_t y;
-    uint8_t player_id;
-    std::vector<std::string> parts;
-
-    str = "PIXEL ";
-
-    parts = split_to_vector(event_data, ' ');
-
-    if (parts.size() != 3)
-        return false;
-
-    if (parts[0].length() != 4 || parts[1].length() != 4
-                || parts[2].length() != 1)
-        return false;
-
-
-    x = parse_number<uint32_t>(parts[0]);
-    y = parse_number<uint32_t>(parts[1]);
-
-    player_id = parse_number<uint8_t>(parts[2]);
-
-    if (player_id > MAX_PLAYERS)
-        return false;
-
-    append_value<uint32_t>(x, str);
-    append_value<uint32_t>(y, str);
-
-    append_value<uint8_t>(player_id, str);
-
-    return true;
-}
-
-
-bool player_eliminated_msg(std::string event_data, std::string str) {
-    uint8_t player_id;
-
-    str = "PLAYER_ELIMINATED ";
-
-    if (event_data.length() != 1)
-        return false;
-
-    player_id = event_data[0];
-
-    append_value<uint8_t>(player_id, str);
-
-    return true;
-}
-
-
-bool message_to_gui(event &ev, std::string &str) {
+bool message_to_gui(event &ev, std::string &str, std::string name) {
 
     bool result;
 
@@ -154,15 +91,15 @@ bool message_to_gui(event &ev, std::string &str) {
     switch(ev.event_type) {
 
         case NEW_GAME:
-            result = new_game_msg(ev.event_data, str);
+            //result = new_game_msg(ev.event_data, str);
             break;
 
         case PIXEL:
-            result = pixel_msg(ev.event_data, str);
+            //result = pixel_msg(ev.event_data, str, name);
             break;
 
         case PLAYER_ELIMINATED:
-            result = player_eliminated_msg(ev.event_data, str);
+            //result = player_eliminated_msg(ev.event_data, str, name);
             break;
 
         default:

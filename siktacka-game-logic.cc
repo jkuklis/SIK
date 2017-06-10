@@ -4,11 +4,11 @@
 #include <set>
 #include <list>
 #include <deque>
+#include <math.h>
 
 #include "siktacka-input-server.h"
 #include "siktacka-game-logic.h"
 #include "siktacka-consts.h"
-#include "siktacka-communication-server.h"
 
 // TODO event arguments
 
@@ -27,20 +27,22 @@ void rand(uint32_t &var, server_params &sp) {
     sp.random = next_rand(sp.random);
 }
 
+
 long double rand_range(uint32_t modulus, long double correction, server_params &sp) {
     uint32_t coord;
     long double coord_fl;
 
-    rand(coord);
+    rand(coord, sp);
 
     coord %= modulus;
 
-    coord_fl = (long_double)(coord) + correction;
+    coord_fl = (long double)(coord) + correction;
 
     return coord_fl;
 }
 
-snake place_snake(std::name, server_params &sp) {
+
+void place_snake(snake &player, server_params &sp) {
 
     long double x, y;
     long double direction;
@@ -51,35 +53,40 @@ snake place_snake(std::name, server_params &sp) {
 
     direction = rand_range(360, 0, sp);
 
-    result = snake(name, x, y, direction);
-
-    return result;
+    player.x = x;
+    player.y = y;
+    player.direction = direction;
 }
+
+
 
 // TODO inline ?
 
-inline spot map_position(snake player) {
+inline spot map_position(snake &player) {
     return spot((uint32_t)(player.x), (uint32_t)(player.y));
 }
 
 
-inline bool is_free(spot position, std::vector<std::vector<uint8_t> > &map) {
-    return (map[spot.y][spot.x] == 0);
+inline bool is_free(spot position, std::vector<std::vector<uint8_t> > &map,
+            server_params &sp) {
+    return (position.x < sp.width && position.y < sp.height
+                && map[position.y][position.x] == 0);
 }
 
 
 void make_map(game_state &gs, server_params &sp) {
-    gs.map.resize(sp.height, 0);
+    gs.map.resize(sp.height);
 
-    for (int i = 0; i < sp.height; i++) {
+    for (uint32_t i = 0; i < sp.height; i++) {
 
         gs.map[i].resize(sp.width, 0);
     }
 }
 
 
-void add_snake(std::string name, uint8 &id, game_state &gs) {
-    snake player = (player_id, name, 0, 0, 0);
+
+void add_snake(std::string &name, uint8_t &player_id, game_state &gs) {
+    snake player (player_id, name, 0, 0, 0);
 
     gs.snakes.push_back(player);
 
@@ -87,13 +94,14 @@ void add_snake(std::string name, uint8 &id, game_state &gs) {
 }
 
 
-void add_snakes(std::vector<std::string> names, game_state &gs) {
+void add_snakes(std::vector<std::string> player_names, game_state &gs) {
 
     uint8_t player_id = 0;
 
-    std::multiset<std::string> names(player_names.begin(), player_names.end());
+    // server should sort players
+    //std::multiset<std::string> names(player_names.begin(), player_names.end());
 
-    for (std::string name : names) {
+    for (std::string name : player_names) {
 
         // TODO - player list should not contain empty names
         // if (name != "")
@@ -112,33 +120,34 @@ void init_game(std::vector<std::string> player_names, game_state &gs,
 
     add_snakes(player_names, gs);
 
-    ev = event_new_game(player_names, gs.all_events.size(), sp);
+    ev = event_new_game(player_names, 0, sp);
 
     gs.all_events.push_back(ev);
 }
 
 
-void add_player(snake player, spot position, game_state &gs) {
+void add_pixel_map(uint32_t player_id, spot position, game_state &gs,
+                server_params &sp) {
 
     event ev;
-
-    gs.snakes.push_back(player);
 
     gs.map[position.y][position.x] = 1;
 
-    ev = event_pixel();
+    ev = event_pixel(player_id, position.x, position.y,
+                gs.all_events.size(), sp);
 
     gs.all_events.push_back(ev);
 }
 
 
-void eliminate_player(uint32_t player_id, game_state &gs) {
+void eliminate_player(uint32_t player_id, game_state &gs, server_params &sp) {
     event ev;
 
-    ev = event_player_eliminated();
+    ev = event_player_eliminated(player_id, gs.all_events.size(), sp);
 
     gs.all_events.push_back(ev);
 }
+
 
 
 game_state new_game(std::vector<std::string> player_names, server_params &sp) {
@@ -149,20 +158,76 @@ game_state new_game(std::vector<std::string> player_names, server_params &sp) {
 
     init_game(player_names, gs, sp);
 
-    for (std::string name : player_names) {
-        player = place_snake(name, sp);
+    for (auto it = gs.snakes.begin(); it != gs.snakes.end(); ) {
+        place_snake((*it), sp);
+
+        player = *it;
 
         player_spot = map_position(player);
 
-        if (is_free(player_spot, gs.map)) {
+        if (is_free(player_spot, gs.map, sp)) {
 
-            add_player(player.id, player_spot, gs);
+            add_pixel_map(player.id, player_spot, gs, sp);
+
+            ++it;
 
         } else {
+            eliminate_player(player.id, gs, sp);
 
-            eliminate_player(player.id, gs);
+            it = gs.snakes.erase(it);
         }
     }
 
     return gs;
+}
+
+
+void move_snake(snake &player) {
+    player.x += cos(player.direction * PI / 180);
+    player.y += sin(player.direction * PI / 180);
+}
+
+
+void round(game_state &gs, server_params &sp, std::vector<int8_t> &dir_table) {
+
+    snake player;
+    spot before;
+    spot after;
+
+    for (auto it = gs.snakes.begin(); it != gs.snakes.end(); ) {
+
+        spot before = map_position(*it);
+
+        switch(dir_table[it->id]) {
+
+            case -1:
+                it->direction -= sp.turn;
+                break;
+
+            case 1:
+                it->direction += sp.turn;
+                break;
+        }
+
+        move_snake(*it);
+
+        spot after = map_position(*it);
+
+        if (before.x == after.x && before.y == after.y)
+            continue;
+
+        if (is_free(after, gs.map, sp)) {
+
+            add_pixel_map(it->id, after, gs, sp);
+
+            ++it;
+
+        } else {
+
+            eliminate_player(it->id, gs, sp);
+
+            it = gs.snakes.erase(it);
+
+        }
+    }
 }

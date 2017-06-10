@@ -253,7 +253,7 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y) {
     return result;
 }
 
-
+/*
 bool correct_player_names(std::string &event_data) {
 
     std::string tmp;
@@ -280,12 +280,14 @@ bool correct_player_names(std::string &event_data) {
 
     return true;
 }
+*/
 
 
 bool correct_data(uint32_t len, uint8_t event_type, std::string &event_data) {
     switch(event_type) {
         case 0:
-            return correct_player_names(event_data);
+            //return correct_player_names(event_data);
+            return true;
 
         case 1:
             return (len == 14);

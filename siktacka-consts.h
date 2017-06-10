@@ -45,5 +45,6 @@ const uint32_t MAX_UDP_DATA = 512;
 const uint32_t MAX_PLAYERS = 42;
 
 #define POLY 0xedb88320
+#define PI 3.14159265
 
 #endif /* SIKTACKA_CONSTS */

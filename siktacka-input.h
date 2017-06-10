@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <string.h>
+#include <iostream>
 
 template <typename T>
 struct constraints {
