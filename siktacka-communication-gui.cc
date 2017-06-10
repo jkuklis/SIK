@@ -5,7 +5,7 @@
 #include "siktacka-consts.h"
 
 // TODO check, if maxx etc have suitable length
-// TODO templete constraints_info, now ints
+// TODO templete constraints, now ints
 
 bool get_value(std::string &data, uint32_t &value, constr_info &constr) {
 
@@ -22,12 +22,12 @@ bool get_value(std::string &data, uint32_t &value, constr_info &constr) {
 bool manage_value(std::string &data, std::string str, std::string name,
             int min_value, int max_value) {
     uint32_t value;
-    constraints_info constr;
+    constraints constr;
 
     if (data.length() != 4)
         return false;
 
-    constr = constraints_info(name, min_value, max_value);
+    constr = constraints(name, min_value, max_value);
 
     if(!get_value(data, value, constr)
         return false;

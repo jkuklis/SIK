@@ -6,12 +6,12 @@
 // TODO correct to uint32_t or sth
 
 struct server_params {
-    int width = DEFAULT_WIDTH;
-    int height = DEFAULT_HEIGHT;
-    int port = DEFAULT_PORT;
-    int speed = DEFAULT_SPEED; // ROUND_PER_SEC
-    int turn = DEFAULT_TURN; // TURNING_SPEED
-    int random = time(NULL); // rand() seed
+    uint32_t width = DEFAULT_WIDTH;
+    uint32_t height = DEFAULT_HEIGHT;
+    uint32_t port = DEFAULT_PORT;
+    uint32_t speed = DEFAULT_SPEED; // ROUND_PER_SEC
+    uint32_t turn = DEFAULT_TURN; // TURNING_SPEED
+    uint32_t random = time(NULL); // rand() seed
     //int game_id = 0;
 };
 

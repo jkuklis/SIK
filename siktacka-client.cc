@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     timeval start;
     gettimeofday(&start, NULL);
-    uint64_t now = 1000 * start.tv_sec + start.tv_usec;
+    uint64_t now = 1000000 * start.tv_sec + start.tv_usec;
     uint64_t last_sent = now;
 
     message_cts msg_cts(last_sent, 0, 0, cp.player_name);
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
         msg_cts.turn_direction = check_ui();
 
         gettimeofday(&start, NULL);
-        now = 1000 * start.tv_sec + start.tv_usec;
+        now = 1000000 * start.tv_sec + start.tv_usec;
         //int64_t sleep_time = USLEEP_TIME - (now - last_sent);
         //last_sent = now;
 

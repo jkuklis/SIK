@@ -14,18 +14,18 @@ void print_client_params(client_params cp) {
         << " " << cp.ui_host << " " << cp.ui_port << std::endl;
 }
 
-bool get_port(std::string port_str, client_params &cp, bool server) {
-    int port;
-    constraints_info constr;
+bool get_port(std::string &port_str, client_params &cp, bool server) {
+    uint32_t port;
+    constraints<uint32_t> constr;
 
     if (!string_to_int(port_str, port))
         return false;
 
     std::string helper = (server ? "server" : "gui");
 
-    constr = constraints_info("port of " + helper, MIN_PORT, MAX_PORT);
+    constr = constraints<uint32_t>("port of " + helper, MIN_PORT, MAX_PORT);
 
-    if (!checked_constraints(port, constr))
+    if (!checked_constraints<uint32_t>(port, constr))
         return false;
 
     if (server)
@@ -37,8 +37,9 @@ bool get_port(std::string port_str, client_params &cp, bool server) {
 }
 
 
-bool check_host(std::string str, client_params &cp, bool server) {
-    std::vector<std::string> parts = split_to_vector(str, ":");
+bool check_host(std::string &str, client_params &cp, bool server) {
+
+    std::vector<std::string> parts = split_to_vector(str, ':');
 
     if (parts.size() == 2) {
         std::string port_str = parts.back();
@@ -65,6 +66,10 @@ bool check_host(std::string str, client_params &cp, bool server) {
 
 bool fill_client_params(client_params &cp, int argc, char *argv[]) {
 
+    std::string name;
+    std::string server_host;
+    std::string gui_host;
+
     if (argc != 3 && argc != 4) {
         std::cout << "Usage: ./siktacka-client player_name " <<
                 "game_server_host[:port] [ui_server_host[:port]]\n";
@@ -73,13 +78,21 @@ bool fill_client_params(client_params &cp, int argc, char *argv[]) {
 
     bool server = true;
 
-    if (!check_player_name(argv[1], cp) || !check_host(argv[2], cp, server))
+    name = argv[1];
+    server_host = argv[2];
+
+    if (!check_player_name(name) || !check_host(server_host, cp, server))
         return false;
 
     cp.player_name = argv[1];
 
-    if (argc == 4 && !check_host(argv[3], cp, !server))
-        return false;
+
+    if (argc == 4) {
+        gui_host = argv[3];
+
+        if (!check_host(gui_host, cp, !server))
+            return false;
+    }
 
     return true;
 }

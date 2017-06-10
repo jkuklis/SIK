@@ -1,20 +1,42 @@
-#include "iostream"
+#include <iostream>
 
 #include "siktacka-input.h"
+#include "siktacka-consts.h"
 
-bool is_numeric(std::string str) {
+bool is_numeric(std::string &str) {
+
+    if (str.empty())
+        return false;
+
     return std::all_of(str.begin(), str.end(),
                 [](unsigned char c) { return ::isdigit(c); });
 }
 
-bool string_to_int(std::string str, int &result) {
+
+// TODO update uint32_t
+
+bool string_to_int(std::string &str, uint32_t &result) {
+    int64_t tmp;
+
     if (!is_numeric(str)) {
         std::cout << "Non numeric argument\n";
         return false;
     }
 
+    if (str.length() > 9) {
+        std::cout << "Out of range argument\n";
+        return false;
+    }
+
     try {
-        result = std::stoi(str);
+        tmp = std::strtol(str.c_str(), NULL, 10);
+
+        if (tmp < 0 || tmp > MAX_UINT32) {
+            std::cout << "Out of range argument\n";
+            return false;
+        }
+
+        result = (uint32_t) tmp;
 
     } catch (std::invalid_argument& e) {
         std::cout << "Conversion not possible\n";
@@ -32,24 +54,8 @@ bool string_to_int(std::string str, int &result) {
     return true;
 }
 
-bool checked_constraints(int value, constraints_info constr, bool print = true) {
-    if (value < constr.min_value) {
 
-        if (print) {
-            std::cout << constr.param_name << " too small\n";
-        }
-        return false;
-    }
-    if (value > constr.max_value) {
-        if (print) {
-            std::cout << constr.param_name << " too big\n";
-        }
-        return false;
-    }
-    return true;
-}
-
-bool check_player_name(std::string str, bool print = true) {
+bool check_player_name(std::string &str, bool print) {
     if (str.length() < MIN_LENGTH) {
 
         if (print) {
@@ -79,16 +85,43 @@ bool check_player_name(std::string str, bool print = true) {
     return correct;
 }
 
-std::vector<std::string> split_to_vector(std::string &str, std::string delimiter) {
+std::vector<std::string> split_to_vector(std::string &str, char delimiter_char,
+            uint32_t len) {
+
+    std::string delimiter;
+    std::string to_push;
     std::vector<std::string> parts;
     size_t last = 0;
     size_t next = 0;
 
-    while ((next = str.find(delimiter, last)) != std::string::npos) {
-        parts.push_back(str.substr(last, next - last));
-        last = next + 1;
+    if (delimiter_char != '\0') {
+
+        delimiter = "";
+        delimiter += delimiter_char;
+
+        while ((next = str.find(delimiter, last)) != std::string::npos) {
+            to_push = str.substr(last, next - last);
+
+            parts.push_back(to_push);
+
+            last = next + 1;
+        }
+        parts.push_back(str.substr(last));
+
+    } else {
+
+        for (uint32_t i = 0; i < len; i++) {
+            if (str[i] == '\0') {
+                to_push = str.substr(last, i - last);
+
+                parts.push_back(to_push);
+
+                last = i + 1;
+            }
+        }
+
+        parts.push_back(str.substr(last));
     }
-    parts.push_back(str.substr(last));
 
     return parts;
 }

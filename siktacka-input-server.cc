@@ -14,38 +14,44 @@ void print_server_params(server_params sp) {
 
 bool fill_server_params(server_params &sp, int argc, char *argv[]) {
     char c;
-    int to_int;
-    constraints_info constr;
+    uint32_t to_int;
+    std::string arg;
+    constraints<uint32_t> constr;
+
+    if (argc != 1 && argv[1][0] != '-')
+        return false;
 
     // Width Height port speed turn random
     while ((c = getopt(argc, argv, "W:H:p:s:t:r:")) != -1) {
-        bool successful_conversion = string_to_int(optarg, to_int);
+        arg = optarg;
+
+        bool successful_conversion = string_to_int(arg, to_int);
         if (!successful_conversion)
             return false;
 
         switch (c) {
             case 'W':
-                constr = constraints_info("width", MIN_WIDTH, MAX_WIDTH);
+                constr = constraints<uint32_t>("width", MIN_WIDTH, MAX_WIDTH);
                 sp.width = to_int;
                 break;
             case 'H':
-                constr = constraints_info("height", MIN_HEIGHT, MAX_HEIGHT);
+                constr = constraints<uint32_t>("height", MIN_HEIGHT, MAX_HEIGHT);
                 sp.height = to_int;
                 break;
             case 'p':
-                constr = constraints_info("port", MIN_PORT, MAX_PORT);
+                constr = constraints<uint32_t>("port", MIN_PORT, MAX_PORT);
                 sp.port = to_int;
                 break;
             case 's':
-                constr = constraints_info("speed", MIN_SPEED, MAX_SPEED);
+                constr = constraints<uint32_t>("speed", MIN_SPEED, MAX_SPEED);
                 sp.speed = to_int;
                 break;
             case 't':
-                constr = constraints_info("turn", MIN_TURN, MAX_TURN);
+                constr = constraints<uint32_t>("turn", MIN_TURN, MAX_TURN);
                 sp.turn = to_int;
                 break;
             case 'r':
-                constr = constraints_info("random", MIN_INT, MAX_INT);
+                constr = constraints<uint32_t>("random", 0, MAX_UINT32);
                 sp.random = to_int;
                 break;
             case '?':
@@ -56,7 +62,7 @@ bool fill_server_params(server_params &sp, int argc, char *argv[]) {
                 return false;
         }
 
-        if (!checked_constraints(to_int, constr))
+        if (!checked_constraints<uint32_t>(to_int, constr))
             return false;
     }
     return true;
