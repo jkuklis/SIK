@@ -19,8 +19,6 @@
 #include "siktacka-communication-gui.h"
 #include "siktacka-input-server.h"
 
-// TODO chrzanic broadcaster
-
 int check_sock(pollfd &sock) {
 
     int ret;
@@ -63,9 +61,10 @@ int process_msg_stc(pollfd &sock, sockaddr_in6 &server_address,
 }
 
 bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
-            client_params &cp) {
+            client_params &cp, pollfd &sock) {
 
     bool result;
+    uint32_t len;
     uint32_t x;
     uint32_t y;
     uint8_t id;
@@ -87,12 +86,16 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
                 append_value<uint32_t>(y, str);
                 str += ' ';
 
-                for (std::string name : names) {
-                    str += name;
+                for (uint32_t i = 0; i < names.size() - 1; i++) {
+                    str += names[i];
                     str += ' ';
                 }
 
-                // send
+                str += names.back();
+
+                len = str.length();
+                if (write(sock.fd, str.c_str(), len) < 0)
+                    return 0;
 
                 break;
 
@@ -111,7 +114,9 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
 
                 append_value<uint32_t>(y, str);
 
-                // send
+                len = str.length();
+                if (write(sock.fd, str.c_str(), len) < 0)
+                    return 0;
 
                 break;
 
@@ -122,7 +127,9 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
 
                 str += id;
 
-                // send
+                len = str.length();
+                if (write(sock.fd, str.c_str(), len) < 0)
+                    return 0;
 
                 break;
 
@@ -140,20 +147,20 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
 }
 
 
-int try_receive_server_msg(pollfd &sock, sockaddr_in6 &server_address,
-            std::vector<std::string> &player_names, uint32_t &game_id,
-            client_params &cp) {
+int try_receive_server_msg(pollfd &server_sock, pollfd &ui_sock,
+            sockaddr_in6 &server_address, std::vector<std::string> &player_names,
+            uint32_t &game_id, client_params &cp) {
 
     message_stc msg_stc;
 
     int res;
 
-    res = check_sock(sock);
+    res = check_sock(server_sock);
 
     if (res != 1)
         return res;
 
-    if (!process_msg_stc(sock, server_address, msg_stc))
+    if (!process_msg_stc(server_sock, server_address, msg_stc))
         return 0;
 
     if (msg_stc.game_id < game_id)
@@ -166,14 +173,45 @@ int try_receive_server_msg(pollfd &sock, sockaddr_in6 &server_address,
             game_id = msg_stc.game_id;
     }
 
-    send_to_gui(msg_stc, player_names, cp);
+    send_to_gui(msg_stc, player_names, cp, ui_sock);
 
     return 1;
 }
 
 
-int try_receive_gui_msg() {
+int try_receive_gui_msg(pollfd &sock, int8_t &direction) {
+    int res;
 
+    res = check_sock(sock);
+
+    if (res != 1)
+        return res;
+
+    uint32_t buf_size = 20;
+
+    char buf[buf_size];
+
+    if (read(sock.fd, buf, buf_size) < 0)
+        return 0;
+
+    std::string str (buf, buf_size);
+
+    if (str == "LEFT_KEY_DOWN")
+        direction = -1;
+
+    else if (str == "LEFT_KEY_UP")
+        direction = 0;
+
+    else if (str == "RIGHT_KEY_DOWN")
+        direction = 1;
+
+    else if (str == "RIGHT_KEY_UP")
+        direction = 0;
+
+    else
+        return 0;
+
+    return 1;
 }
 
 
@@ -185,29 +223,34 @@ int main(int argc, char *argv[]) {
     sockaddr_in6 server_address;
     sockaddr_in6 ui_address;
 
+    addrinfo *server_addr_result;
+    addrinfo *ui_addr_result;
+
     if (!fill_client_params(cp, argc, argv))
         return 1;
 
     print_client_params(cp);
 
-    if (!establish_address(server_address, cp.server_host, cp.server_port))
+    if (!establish_address(server_address, cp.server_host, cp.server_port,
+            server_addr_result))
         return 1;
 
     if (!get_socket(server_sock))
         return 1;
 
-    if (!establish_address(ui_address, cp.ui_host, cp.ui_port))
+    if (!establish_address(ui_address, cp.ui_host, cp.ui_port, ui_addr_result))
         return 1;
 
-    if (!get_socket(ui_sock))
+    if (!get_socket_tcp(ui_sock, ui_addr_result))
         return 1;
 
+
+    freeaddrinfo(server_addr_result);
+    freeaddrinfo(ui_addr_result);
 
     int8_t direction = 0;
 
     uint64_t session_id = current_us();
-
-    uint32_t next_expected_event_no = 0;
 
     message_cts msg_cts;
 
@@ -219,7 +262,7 @@ int main(int argc, char *argv[]) {
 
     while(true) {
 
-        msg_cts = message_cts(session_id, direction, next_expected_event_no,
+        msg_cts = message_cts(session_id, direction, cp.next_expected_event_no,
                 cp.player_name);
 
         std::string msg_str = message_cts_str(msg_cts);
@@ -230,11 +273,11 @@ int main(int argc, char *argv[]) {
 
         while (current_us() - last_sent > 20000) {
 
-            if (try_receive_server_msg(server_sock, server_address, players,
-                    game_id, cp) == -1)
+            if (try_receive_server_msg(server_sock, ui_sock, server_address,
+                    players, game_id, cp) == -1)
                 return 1;
 
-            if (try_receive_gui_msg() == -1)
+            if (try_receive_gui_msg(ui_sock, direction) == -1)
                 return 1;
         }
     }

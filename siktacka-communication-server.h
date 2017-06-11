@@ -100,12 +100,6 @@ uint32_t new_game_str(uint32_t maxx, uint32_t maxy,
 std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y);
 
 
-// should broadcast be there?
-/* void broadcast(event ev) {
-    // TODO
-}
-*/
-
 uint64_t current_us();
 
 #endif /* SIKTACKA_COMMUNICATION_SERVER */

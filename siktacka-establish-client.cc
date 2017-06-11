@@ -17,23 +17,21 @@
 #include "siktacka-establish-client.h"
 
 
-bool establish_address(sockaddr_in6 &address, std::string host, int port) {
-    addrinfo server_addr_hints;
-    addrinfo *server_addr_result;
+bool establish_address(sockaddr_in6 &address, std::string host, int port,
+            addrinfo *addr_result) {
+    addrinfo addr_hints;
 
-    memset(&server_addr_hints, 0, sizeof(addrinfo));
+    memset(&addr_hints, 0, sizeof(addrinfo));
 
-    if (getaddrinfo(host.c_str(), NULL, &server_addr_hints, &server_addr_result) != 0) {
+    if (getaddrinfo(host.c_str(), NULL, &addr_hints, &addr_result) != 0) {
         std::cout << "Failed to get address info\n";
         return false;
     }
 
     address.sin6_family = AF_INET6;
     memcpy(address.sin6_addr.s6_addr,
-        ((sockaddr_in6*) server_addr_result->ai_addr)->sin6_addr.s6_addr, S6_ADDR_LEN);
+        ((sockaddr_in6*) addr_result->ai_addr)->sin6_addr.s6_addr, S6_ADDR_LEN);
     address.sin6_port = htons((uint16_t) port);
-
-    freeaddrinfo(server_addr_result);
 
     return true;
 }
@@ -47,7 +45,20 @@ bool get_socket(pollfd &sock) {
     sock.fd = socket(PF_INET6, SOCK_DGRAM, 0);
 
     if (sock.fd < 0) {
-        std::cout << "Failed to open socket\n";
+        std::cout << "Failed to open server socket\n";
+        return false;
+    }
+    return true;
+}
+
+
+bool get_socket_tcp(pollfd &sock, addrinfo *addr_result) {
+    sock.fd = -1;
+    sock.events = POLLIN;
+    sock.revents = 0;
+
+    if (connect(sock.fd, addr_result->ai_addr, addr_result->ai_addrlen) < 0) {
+        std::cout << "Failed to open gui socket\n";
         return false;
     }
     return true;
