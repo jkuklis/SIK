@@ -17,7 +17,7 @@
 #include "siktacka-establish-client.h"
 
 
-bool establish_address_udp(sockaddr_in6 &address, std::string host, int port) {
+bool establish_address_udp(sockaddr_in6 &address, std::string host, uint32_t port) {
     addrinfo addr_hints;
     addrinfo *addr_result;
 
@@ -59,23 +59,32 @@ bool get_socket_tcp(pollfd &sock, addrinfo *addr_result) {
     sock.events = POLLIN;
     sock.revents = 0;
 
-    if (connect(sock.fd, addr_result->ai_addr, addr_result->ai_addrlen) < 0) {
+    sock.fd = socket(addr_result->ai_family, addr_result->ai_socktype, addr_result->ai_protocol);
+    if (sock.fd < 0) {
         std::cout << "Failed to open gui socket\n";
+        return false;
+    }
+
+    if (connect(sock.fd, addr_result->ai_addr, addr_result->ai_addrlen) < 0) {
+        std::cout << "Failed to connect\n";
         return false;
     }
     return true;
 }
 
 
-bool establish_connection_tcp(sockaddr_in6 &address, std::string host, int port,
+bool establish_connection_tcp(sockaddr_in6 &address, std::string host, uint32_t port,
                             pollfd &sock) {
     addrinfo addr_hints;
     addrinfo *addr_result;
     bool success;
 
     memset(&addr_hints, 0, sizeof(addrinfo));
+    //addr_hints.ai_family = AF_INET6;
+    addr_hints.ai_socktype = SOCK_STREAM;
+    addr_hints.ai_protocol = IPPROTO_TCP;
 
-    if (getaddrinfo(host.c_str(), NULL, &addr_hints, &addr_result) != 0) {
+    if (getaddrinfo(host.c_str(), (std::to_string(port)).c_str(), &addr_hints, &addr_result) != 0) {
         std::cout << "Failed to get address info\n";
         return false;
     }

@@ -4,6 +4,7 @@
 #include <string>
 //#include <limits>
 #include <time.h>
+#include <stdint.h>
 
 const uint32_t DEFAULT_WIDTH = 800;
 const uint32_t DEFAULT_HEIGHT = 600;

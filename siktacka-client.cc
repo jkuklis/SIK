@@ -26,10 +26,14 @@ int check_sock(pollfd &sock) {
 
     ret = poll(&sock, 1, 0);
 
-    if (ret <= 0) {
+    if (ret == -1) {
         std::cout << "Unexpected poll error\n";
         return -1;
     }
+
+
+    if (ret == 0)
+        return 0;
 
     if (!(sock.revents && POLLIN)) {
         return 0;
@@ -182,6 +186,47 @@ int try_receive_server_msg(pollfd &server_sock, pollfd &ui_sock,
 }
 
 
+bool same_str(char *buf, std::string str) {
+    bool result = true;
+
+    for (uint32_t i = 0; i < str.size(); i++) {
+        if (buf[i] != str[i]) {
+            result = false;
+            break;
+        }
+    }
+
+    return result;
+}
+
+
+bool change_direction(char *buf, int8_t &direction) {
+    std::string str;
+
+    str = "LEFT_KEY_DOWN";
+
+    if (same_str(buf, str))
+        direction = -1;
+
+    str = "LEFT_KEY_UP";
+
+    if (same_str(buf, str))
+        direction = 0;
+
+    str = "RIGHT_KEY_DOWN";
+
+    if (same_str(buf, str))
+        direction = 1;
+
+    str = "RIGHT_KEY_UP";
+
+    if (same_str(buf, str))
+        direction = 0;
+
+    return true;
+}
+
+
 int try_receive_gui_msg(pollfd &sock, int8_t &direction) {
     int res;
 
@@ -197,22 +242,7 @@ int try_receive_gui_msg(pollfd &sock, int8_t &direction) {
     if (read(sock.fd, buf, buf_size) < 0)
         return 0;
 
-    std::string str (buf, buf_size);
-
-    if (str == "LEFT_KEY_DOWN")
-        direction = -1;
-
-    else if (str == "LEFT_KEY_UP")
-        direction = 0;
-
-    else if (str == "RIGHT_KEY_DOWN")
-        direction = 1;
-
-    else if (str == "RIGHT_KEY_UP")
-        direction = 0;
-
-    else
-        return 0;
+    change_direction(buf, direction);
 
     return 1;
 }
@@ -220,43 +250,28 @@ int try_receive_gui_msg(pollfd &sock, int8_t &direction) {
 
 int main(int argc, char *argv[]) {
 
+    int res;
+
     client_params cp;
     pollfd server_sock;
     pollfd ui_sock;
     sockaddr_in6 server_address;
     sockaddr_in6 ui_address;
 
-    addrinfo *server_addr_result;
-    addrinfo *ui_addr_result;
-
     if (!fill_client_params(cp, argc, argv))
         return 1;
 
     print_client_params(cp);
 
-    /*
-    if (!establish_address(server_address, cp.server_host, cp.server_port,
-            server_addr_result))
+
+    if (!establish_address_udp(server_address, cp.server_host, cp.server_port))
         return 1;
 
-
-    if (!get_socket(server_sock))
-        return 1;
-        */
-    if (!establish_address(ui_address, cp.ui_host, cp.ui_port, ui_addr_result))
+    if (!get_socket_udp(server_sock))
         return 1;
 
-        std::cout << ui_addr_result->ai_addr << std::endl;
-
-
-    //if (!get_socket_tcp(ui_sock, ui_addr_result))
-    //    return 1;
-
-
-    //freeaddrinfo(server_addr_result);
-    freeaddrinfo(ui_addr_result);
-
-    /*
+    if (!establish_connection_tcp(ui_address, cp.ui_host, cp.ui_port, ui_sock))
+        return 1;
 
     int8_t direction = 0;
 
@@ -283,16 +298,23 @@ int main(int argc, char *argv[]) {
 
         while (current_us() - last_sent > 20000) {
 
-            if (try_receive_server_msg(server_sock, ui_sock, server_address,
-                    players, game_id, cp) == -1)
+            res = try_receive_server_msg(server_sock, ui_sock, server_address,
+                                        players, game_id, cp);
+
+            if (res == -1)
                 return 1;
 
-            if (try_receive_gui_msg(ui_sock, direction) == -1)
+            res = try_receive_gui_msg(ui_sock, direction);
+
+            if (res == -1)
                 return 1;
+
+            if (res == 1)
+                std::cout << (int) direction << "\n";
         }
     }
 
-    */
+
 
     return 1;
 }

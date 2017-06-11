@@ -41,8 +41,8 @@ struct player {
 
     player() {}
 
-    player(bool connected, sockaddr_in6 address, uint64_t session_id,
-                std::string name, uint64_t last_sent, int8_t direction,
+    player(bool connected, sockaddr_in6 &address, uint64_t session_id,
+                std::string &name, uint64_t last_sent, int8_t direction,
                 uint32_t expected_no) :
                 connected(connected),
                 address(address),
@@ -116,9 +116,18 @@ void broadcast(uint32_t game_id, std::vector<event> &events,
 }
 
 
-bool same_addr(sockaddr_in6 a1, sockaddr_in6 a2) {
-	return (a1.sin6_addr.s6_addr == a2.sin6_addr.s6_addr
-                && a1.sin6_port == a2.sin6_port);
+bool same_addr(sockaddr_in6 &a1, sockaddr_in6 &a2) {
+	bool result = true;
+
+    if (a1.sin6_port != a2.sin6_port)
+        result = false;
+
+    for (uint32_t i = 0; i < S6_ADDR_LEN; i++) {
+        if (a1.sin6_addr.s6_addr[i] != a2.sin6_addr.s6_addr[i])
+            result = false;
+    }
+
+    return result;
 }
 
 
@@ -131,10 +140,13 @@ int check_sock(pollfd &sock, bool in_game) {
 
     ret = poll(&sock, 1, mode);
 
-    if (ret <= 0) {
+    if (ret == -1) {
         std::cout << "Unexpected poll error\n";
         return -1;
     }
+
+    if (ret == 0)
+        return 0;
 
     if (!(sock.revents && POLLIN)) {
         return 0;
@@ -280,7 +292,12 @@ int receive_msg_cts(bool in_game, pollfd &sock, std::vector<player> &players,
     if (!process_msg_cts(sock, client_address, msg_cts))
         return 0;
 
+    //std::cout << msg_cts.session_id << " " << (int) msg_cts.turn_direction << " " \
+    << msg_cts.next_expected_event_no << " " << msg_cts.player_name << "\n";
+
     int pos = check_existing(players, sta, msg_cts, client_address);
+
+    std::cout << pos << "\n";
 
     if (pos == -1) {
         pos = make_place(players, sta, msg_cts);
@@ -407,7 +424,7 @@ int main(int argc, char *argv[]) {
             return -1;
 
         if (res == 0)
-            break;
+            continue;
 
 
         if (sta.active >= 2 && sta.ready + sta.inactive == sta.connected) {
