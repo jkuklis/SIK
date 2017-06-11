@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <netdb.h>
 #include <algorithm>
+#include <assert.h>
 
 #include "siktacka-input-server.h"
 #include "siktacka-establish-server.h"
@@ -21,34 +22,43 @@
 
 // NOTE: pass broadcaster
 
+// broadcast at hoc
+
 struct player {
     bool connected;
     bool ready;
     sockaddr_in6 address;
     uint64_t session_id;
-    uint64_t last_sent;
     std::string name;
-
+    uint64_t last_sent;
+    int8_t direction;
+    uint8_t id;
 
     player() {}
 
     player(bool connected, sockaddr_in6 address, uint64_t session_id,
-                std::string name, uint64_t last_sent, bool ready = false) :
+                std::string name, uint64_t last_sent, int8_t direction) :
                 connected(connected),
                 address(address),
                 session_id(session_id),
                 name(name),
                 last_sent(last_sent),
-                ready(ready) {}
-};
+                direction(direction),
+                id(MAX_PLAYERS) {
 
+        if (direction != 0)
+            ready = true;
+        else
+            ready = false;
+    }
+};
 
 struct stats {
     int ready;
     int connected;
     int active;
     int inactive;
-}
+};
 
 
 bool same_addr(sockaddr_in6 a1, sockaddr_in6 a2) {
@@ -60,7 +70,7 @@ bool same_addr(sockaddr_in6 a1, sockaddr_in6 a2) {
 int check_sock(pollfd &sock, bool in_game) {
 
     int ret;
-    int mode = (in_game ? -1 : 0);
+    int mode = (in_game ? 0 : -1);
 
     sock.revents = 0;
 
@@ -99,8 +109,9 @@ int process_msg_cts(pollfd &sock, sockaddr_in6 &client_address,
     return message_cts_from_str(client_str, msg_cts);
 }
 
-int check_existing(std::vector<player> &players, sockaddr_in6 &client_address,
-            message_cts &msg_cts, stats &sta) {
+
+int check_existing(std::vector<player> &players, stats &sta,
+            message_cts &msg_cts, sockaddr_in6 &client_address) {
 
     int pos = -1;
 
@@ -117,10 +128,13 @@ int check_existing(std::vector<player> &players, sockaddr_in6 &client_address,
                 return -2;
             }
 
+            players[i].direction = msg_cts.turn_direction;
             players[i].session_id = msg_cts.session_id;
             players[i].last_sent = current_us();
 
-            if (msg_cts.direction != 0 && player[i].ready == 0) {
+            if (msg_cts.turn_direction != 0 && players[i].ready == 0) {
+
+                players[i].ready = true;
                 sta.ready ++;
             }
 
@@ -141,11 +155,15 @@ int make_place(std::vector<player> &players, stats &sta, message_cts &msg_cts) {
 
             sta.connected --;
 
-            if (player[i].name != "") {
+            if (players[i].name != "") {
                 sta.active --;
 
+                if (players[i].ready)
+                    sta.ready --;
+
             } else {
-                sta.nonactive --;
+
+                sta.inactive --;
             }
         }
 
@@ -154,18 +172,19 @@ int make_place(std::vector<player> &players, stats &sta, message_cts &msg_cts) {
         }
     }
 
-    return 1;
+    return -1;
 }
 
 
 int seek_place(std::vector<player> &players, stats &sta,
-            sockaddr_in6 &client_address, message_cts &msg_cts) {
+            message_cts &msg_cts, sockaddr_in6 &client_address) {
+
     for (uint32_t i = 0; i < MAX_PLAYERS; i++) {
 
         if (!players[i].connected) {
 
             players[i] = player(true, client_address, msg_cts.session_id,
-                        msg_cts.player_name, current_us());
+                        msg_cts.player_name, current_us(), msg_cts.turn_direction);
 
             sta.connected ++;
 
@@ -173,10 +192,12 @@ int seek_place(std::vector<player> &players, stats &sta,
                 sta.active ++;
 
             } else {
-                sta.nonactive ++;
+                sta.inactive ++;
             }
 
-            if (msg_cts.direction != 0) {
+            if (msg_cts.turn_direction != 0) {
+
+                players[i].ready = true;
                 sta.ready ++;
             }
 
@@ -189,7 +210,7 @@ int seek_place(std::vector<player> &players, stats &sta,
 
 
 int receive_msg_cts(bool in_game, pollfd &sock, std::vector<player> &players,
-            /*sockaddr_in6 &client_address,*/ stats &sta) {
+            stats &sta) {
 
     message_cts msg_cts;
     sockaddr_in6 client_address;
@@ -202,87 +223,92 @@ int receive_msg_cts(bool in_game, pollfd &sock, std::vector<player> &players,
     if (!process_msg_cts(sock, client_address, msg_cts))
         return 0;
 
-    pos = check_existing(players, client_address, msg_cts, sta);
+    int pos = check_existing(players, sta, msg_cts, client_address);
 
     if (pos == -1) {
-        pos = make_place(players, sta);
+        pos = make_place(players, sta, msg_cts);
     }
 
-    if (pos != -2) {
-        return seek_place(players, sta, client_address, msg_cts);
+    if (pos == -1) {
+        return seek_place(players, sta, msg_cts, client_address);
 
-    } else {
-        return 0;
+    } else if (pos == -2) {
+        return -1;
     }
 
-    return 0;
+    return 1;
 }
 
 
 void make_players_list(std::vector<std::string> &player_names,
             std::vector<player> players) {
 
-    int datagram_size = 4;
+    uint32_t datagram_size = 4;
 
     player_names = std::vector<std::string>();
 
     for (uint32_t i = 0; i < MAX_PLAYERS; i++) {
 
-        if (player[i].connected && player[i].name != "") {
-            datagram_size += player[i].name.size();
+        if (players[i].connected && players[i].name != "") {
+            datagram_size += players[i].name.size();
 
             if (datagram_size > MAX_UDP_DATA)
                 break;
 
-            player_names.push_back(player[i].name);
+            player_names.push_back(players[i].name);
         }
     }
 
     std::sort(player_names.begin(), player_names.end());
+
+    for (uint32_t i = 0; i < player_names.size(); i++) {
+        for (uint32_t j = 0; j < MAX_PLAYERS; j++) {
+
+            if (players[j].name == player_names[i])
+                players[j].id = i;
+        }
+    }
+}
+
+
+void prepare_dir_table(std::vector<int8_t> &dir_table,
+            std::vector<player> players) {
+
+    dir_table = std::vector<int8_t>(MAX_PLAYERS);
+
+    for (player p : players) {
+        if (p.id < MAX_PLAYERS) {
+            dir_table[p.id] = p.direction;
+        }
+    }
 }
 
 
 int main(int argc, char *argv[]) {
 
-    bool success;
-
-    message msg_cts;
-
-    uint32_t datagram_size;
-
-    int ret, len, pos;
+    //socklen_t snda_len = (socklen_t) sizeof(client_address);
+    int res;
 
     server_params sp;
 
     sockaddr_in6 address;
-    sockaddr_in6 client_address;
-
-    socklen_t snda_len = (socklen_t) sizeof(client_address);
-
-    int flags = 0;
 
     pollfd sock;
-
 
     uint64_t last_round;
 
     uint64_t round_time;
 
-    game_state gs;
-
     std::vector<player> players (MAX_PLAYERS);
 
-    std::vector<uint32_t> dir_table(MAX_PLAYERS);
+    std::vector<int8_t> dir_table(MAX_PLAYERS);
 
     std::vector<std::string> player_names;
 
-    int connected = 0;
+    stats sta;
 
-    int ready = 0;
+    bool in_game;
 
-    int active = 0;
-
-    int nonactive = 0;
 
     if (!fill_server_params(sp, argc, argv))
         return 1;
@@ -304,7 +330,7 @@ int main(int argc, char *argv[]) {
 
     while(true) {
 
-        int res = receive_msg_cts(in_game, sock, players, sta);
+        res = receive_msg_cts(in_game, sock, players, sta);
 
         if (res == -1)
             return -1;
@@ -312,23 +338,23 @@ int main(int argc, char *argv[]) {
         if (res == 0)
             break;
 
-        // game start
-        if (sta.active >= 2 && sta.ready + sta.nonactive == sta.connected) {
+
+        if (sta.active >= 2 && sta.ready + sta.inactive == sta.connected) {
 
             in_game = true;
 
             make_players_list(player_names, players);
 
-            dir_table = std::vector<uint8_t>(MAX_PLAYERS);
+            game_state gs = new_game(player_names, sp);
 
-            gs = new_game(player_names, sp);
+            last_round = current_us();
 
             while (true) {
 
                 while (current_us() - last_round > round_time) {
                     sock.revents = 0;
 
-                    int res = receive_msg_cts(in_game, sock, players, sta);
+                    res = receive_msg_cts(in_game, sock, players, sta);
 
                     if (res == -1)
                         return -1;
@@ -336,13 +362,22 @@ int main(int argc, char *argv[]) {
 
                 last_round += round_time;
 
+                prepare_dir_table(dir_table, players);
+
                 round(gs, sp, dir_table);
 
                 if (gs.all_events.back().event_type == GAME_OVER)
                     break;
             }
 
-            ready = 0;
+            for (uint32_t i = 0; i < MAX_PLAYERS; i++) {
+                players[i].ready == false;
+                players[i].id = MAX_PLAYERS;
+            }
+
+            sta.ready = 0;
+
+            in_game = false;
         }
     }
 

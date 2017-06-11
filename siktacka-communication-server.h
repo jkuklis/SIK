@@ -7,30 +7,7 @@
 #include <stdint.h>
 
 #include "siktacka-input-server.h"
-
-// TODO
-uint32_t event_crc32(uint32_t len, uint32_t event_no, uint8_t event_type,
-            std::string &event_data);
-
-struct event {
-    uint32_t len;
-    uint32_t event_no;
-    uint8_t event_type;
-    std::string event_data;
-    uint32_t crc32;
-
-    event() {}
-
-    event(uint32_t len, uint32_t event_no, uint8_t event_type,
-                std::string &event_data) :
-                len(len),
-                event_no(event_no),
-                event_type(event_type),
-                event_data(event_data) {
-
-        this->crc32 = event_crc32(len, event_no, event_type, event_data);
-    }
-};
+#include "siktacka-event-struct.h"
 
 
 struct message_stc {
