@@ -84,7 +84,7 @@ event event_new_game(std::vector<std::string> &player_names, uint32_t event_no,
     result.crc32 = event_crc32(result.len, result.event_no, result.event_type,
                 result.event_data);
 
-    sp.broad.broadcast(result);
+    //sp.broad.broadcast(result);
 
     return result;
 }
@@ -104,7 +104,7 @@ event event_pixel(uint8_t id, uint32_t x, uint32_t y, uint32_t event_no,
 
     result = event(len, event_no, PIXEL, event_data);
 
-    sp.broad.broadcast(result);
+    //sp.broad.broadcast(result);
 
     return result;
 }
@@ -124,7 +124,7 @@ event event_player_eliminated(uint8_t id, uint32_t event_no,
 
     result = event(len, event_no, PLAYER_ELIMINATED, event_data);
 
-    sp.broad.broadcast(result);
+    //sp.broad.broadcast(result);
 
     return result;
 }
