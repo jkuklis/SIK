@@ -8,7 +8,6 @@
 
 #include "siktacka-input-server.h"
 
-// TODO
 uint32_t event_crc32(uint32_t len, uint32_t event_no, uint8_t event_type,
             std::string &event_data);
 
@@ -82,7 +81,8 @@ std::string event_str (event &ev);
 
 std::string message_cts_str (message_cts &msg);
 
-std::string message_stc_str (message_stc &msg);
+uint32_t message_stc_str (message_stc &msg, std::string &str,
+            uint32_t first = 0);
 
 
 

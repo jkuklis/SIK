@@ -2,10 +2,23 @@
 #include <string>
 #include <unistd.h>
 #include <getopt.h>
+#include <assert.h>
 
-#include "siktacka-consts.h"
-#include "siktacka-input.h"
 #include "siktacka-input-server.h"
+
+
+void send_string(pollfd &sock, std::string str, sockaddr_in6 &addr) {
+    int flags = 0;
+    socklen_t snda_len = (socklen_t) sizeof(addr);
+
+    int len = str.size();
+
+    int sndlen = sendto(sock.fd, str.c_str(), (size_t) len, flags,
+            (struct sockaddr *) &addr, snda_len);
+
+    assert(len == sndlen);
+}
+
 
 void print_server_params(server_params sp) {
     std::cout << sp.width << " " << sp.height << " " << sp.port << " " \

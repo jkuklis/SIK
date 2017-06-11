@@ -5,9 +5,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <poll.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <poll.h>
 #include <signal.h>
 #include <netdb.h>
 #include <algorithm>
@@ -23,6 +23,10 @@
 // NOTE: pass broadcaster
 
 // broadcast at hoc
+
+// TODO send after request
+
+// TODO set broadcaster
 
 struct player {
     bool connected;
@@ -205,12 +209,38 @@ int seek_place(std::vector<player> &players, stats &sta,
         }
     }
 
-    return 0;
+    return MAX_PLAYERS;
+}
+
+
+void send_client(pollfd &sock, uint32_t event_no, std::vector<event> events,
+            sockaddr_in6 &client_address, uint32_t game_id) {
+
+    uint32_t index = 0;
+    uint32_t count;
+    message_stc msg;
+    std::string to_send;
+
+    while (index < events.size() && events[index].event_no < event_no)
+        index++;
+
+    msg.game_id = game_id;
+
+    msg.events = std::vector<event>(events.begin() + index, events.end());
+
+    while (index < events.size()) {
+
+        count = message_stc_str(msg, to_send, index);
+
+        index += count;
+
+        send_string(sock, to_send, client_address);
+    }
 }
 
 
 int receive_msg_cts(bool in_game, pollfd &sock, std::vector<player> &players,
-            stats &sta) {
+            stats &sta, std::vector<event> &events, uint32_t game_id = 0) {
 
     message_cts msg_cts;
     sockaddr_in6 client_address;
@@ -230,13 +260,22 @@ int receive_msg_cts(bool in_game, pollfd &sock, std::vector<player> &players,
     }
 
     if (pos == -1) {
-        return seek_place(players, sta, msg_cts, client_address);
+        pos = seek_place(players, sta, msg_cts, client_address);
 
     } else if (pos == -2) {
         return -1;
     }
 
-    return 1;
+    if ((uint32_t) pos < MAX_PLAYERS) {
+        if (in_game) {
+            send_client(sock, msg_cts.next_expected_event_no, events,
+                    client_address, game_id);
+        }
+        return 1;
+    }
+
+    else
+        return 0;
 }
 
 
@@ -328,9 +367,11 @@ int main(int argc, char *argv[]) {
 
     in_game = false;
 
+    std::vector<event> empty_events;
+
     while(true) {
 
-        res = receive_msg_cts(in_game, sock, players, sta);
+        res = receive_msg_cts(in_game, sock, players, sta, empty_events);
 
         if (res == -1)
             return -1;
@@ -354,7 +395,8 @@ int main(int argc, char *argv[]) {
                 while (current_us() - last_round > round_time) {
                     sock.revents = 0;
 
-                    res = receive_msg_cts(in_game, sock, players, sta);
+                    res = receive_msg_cts(in_game, sock, players, sta,
+                            gs.all_events, gs.game_id);
 
                     if (res == -1)
                         return -1;

@@ -7,6 +7,6 @@
 
 bool establish_address(sockaddr_in6 &address, std::string host, int port);
 
-bool get_socket(int &sock);
+bool get_socket(pollfd &sock);
 
 #endif /* SIKTACKA_ESTABLISH_CLIENT */

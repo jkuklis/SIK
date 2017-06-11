@@ -8,9 +8,6 @@
 #include "siktacka-consts.h"
 #include "siktacka-input.h"
 
-// TODO ?
-// string copy constructor
-
 
 uint64_t current_us() {
     timeval start;
@@ -49,8 +46,6 @@ uint32_t event_crc32(uint32_t len, uint32_t event_no, uint8_t event_type,
 
     append_data<uint32_t>(len, buf);
     append_data<uint32_t>(event_no, buf);
-    //append_data<uint8_t>(event_type, buf, false);
-    //append_data<std::string>(event_data, buf, false, len - 5)
     buf += (uint8_t) event_type;
     buf += event_data;
 
@@ -66,7 +61,6 @@ uint32_t event_crc32(uint32_t len, uint32_t event_no, uint8_t event_type,
 }
 
 
-// TODO server_params should have a broadcaster class
 event event_new_game(std::vector<std::string> &player_names, uint32_t event_no,
             server_params &sp) {
 
@@ -84,7 +78,7 @@ event event_new_game(std::vector<std::string> &player_names, uint32_t event_no,
     result.crc32 = event_crc32(result.len, result.event_no, result.event_type,
                 result.event_data);
 
-    //sp.broad.broadcast(result);
+    sp.broad.broadcast(event_str(result));
 
     return result;
 }
@@ -104,7 +98,7 @@ event event_pixel(uint8_t id, uint32_t x, uint32_t y, uint32_t event_no,
 
     result = event(len, event_no, PIXEL, event_data);
 
-    //sp.broad.broadcast(result);
+    sp.broad.broadcast(event_str(result));
 
     return result;
 }
@@ -124,7 +118,7 @@ event event_player_eliminated(uint8_t id, uint32_t event_no,
 
     result = event(len, event_no, PLAYER_ELIMINATED, event_data);
 
-    //sp.broad.broadcast(result);
+    sp.broad.broadcast(event_str(result));
 
     return result;
 }
@@ -139,7 +133,7 @@ event event_game_over(uint32_t event_no, server_params &sp) {
 
     result = event(len, event_no, GAME_OVER, event_data);
 
-    // broadcast(sp.broadcaster);
+    sp.broad.broadcast(event_str(result));
 
     return result;
 }
@@ -168,7 +162,7 @@ std::string event_str(event &ev) {
 
 
 uint32_t message_stc_str(message_stc &msg, std::string &str,
-            uint32_t first = 0) {
+            uint32_t first) {
 
     uint32_t i;
     uint32_t count;
@@ -253,40 +247,10 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y) {
     return result;
 }
 
-/*
-bool correct_player_names(std::string &event_data) {
-
-    std::string tmp;
-
-    if (event_data.size() < 12)
-        return false;
-
-    tmp = event_data.substr(8);
-
-    std::vector<std::string> parts;
-
-    parts = split_to_vector(tmp, '\0');
-
-    if (parts.back() != "")
-        return false;
-
-    parts.pop_back();
-
-    for (std::string name : parts) {
-
-        if (!check_player_name(name, false))
-            return false;
-    }
-
-    return true;
-}
-*/
-
 
 bool correct_data(uint32_t len, uint8_t event_type, std::string &event_data) {
     switch(event_type) {
         case 0:
-            //return correct_player_names(event_data);
             return true;
 
         case 1:
@@ -311,9 +275,6 @@ bool event_from_str(event &ev, std::string &str) {
 
 
     uint32_t len = parse_number<uint32_t>(str, 0, 4);
-
-    //if (str.length() != len + 8)
-    //    return false;
 
     uint32_t event_no = parse_number<uint32_t>(str, 4, 8);
 

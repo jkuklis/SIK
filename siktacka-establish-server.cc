@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string.h>
+#include <poll.h>
 
 #include "siktacka-consts.h"
 #include "siktacka-establish-server.h"
@@ -20,7 +21,7 @@ bool get_socket(pollfd &sock) {
     sock.events = POLLIN;
 	sock.revents = 0;
 
-    sock.fd = socket(AF_INET6, SOCK_DGRAM, 0);
+    sock.fd = socket(PF_INET6, SOCK_DGRAM, 0);
 
 	if (sock.fd < 0) {
         std::cout << "Failed to open socket\n";

@@ -10,6 +10,7 @@ struct client_params {
     uint32_t server_port = DEFAULT_PORT;
     std::string ui_host = DEFAULT_HOST;
     uint32_t ui_port = DEFAULT_GUI_PORT;
+    uint32_t next_expected_event_no;
 };
 
 void print_client_params(client_params cp);

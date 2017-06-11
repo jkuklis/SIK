@@ -1,5 +1,17 @@
 #include <iostream>
+#include <string>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <string.h>
+#include <poll.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <netdb.h>
+#include <algorithm>
+#include <assert.h>
 
 #include "siktacka-consts.h"
 #include "siktacka-establish-client.h"
@@ -27,9 +39,14 @@ bool establish_address(sockaddr_in6 &address, std::string host, int port) {
 }
 
 
-bool get_socket(int &sock) {
-    sock = socket(PF_INET6, SOCK_DGRAM, 0);
-    if (sock < 0) {
+bool get_socket(pollfd &sock) {
+    sock.fd = -1;
+    sock.events = POLLIN;
+	sock.revents = 0;
+
+    sock.fd = socket(PF_INET6, SOCK_DGRAM, 0);
+
+    if (sock.fd < 0) {
         std::cout << "Failed to open socket\n";
         return false;
     }
