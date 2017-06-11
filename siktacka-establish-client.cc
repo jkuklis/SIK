@@ -17,9 +17,9 @@
 #include "siktacka-establish-client.h"
 
 
-bool establish_address(sockaddr_in6 &address, std::string host, int port,
-            addrinfo *addr_result) {
+bool establish_address_udp(sockaddr_in6 &address, std::string host, int port) {
     addrinfo addr_hints;
+    addrinfo *addr_result;
 
     memset(&addr_hints, 0, sizeof(addrinfo));
 
@@ -33,11 +33,13 @@ bool establish_address(sockaddr_in6 &address, std::string host, int port,
         ((sockaddr_in6*) addr_result->ai_addr)->sin6_addr.s6_addr, S6_ADDR_LEN);
     address.sin6_port = htons((uint16_t) port);
 
+    freeaddrinfo(addr_result);
+
     return true;
 }
 
 
-bool get_socket(pollfd &sock) {
+bool get_socket_udp(pollfd &sock) {
     sock.fd = -1;
     sock.events = POLLIN;
 	sock.revents = 0;
@@ -62,4 +64,30 @@ bool get_socket_tcp(pollfd &sock, addrinfo *addr_result) {
         return false;
     }
     return true;
+}
+
+
+bool establish_connection_tcp(sockaddr_in6 &address, std::string host, int port,
+                            pollfd &sock) {
+    addrinfo addr_hints;
+    addrinfo *addr_result;
+    bool success;
+
+    memset(&addr_hints, 0, sizeof(addrinfo));
+
+    if (getaddrinfo(host.c_str(), NULL, &addr_hints, &addr_result) != 0) {
+        std::cout << "Failed to get address info\n";
+        return false;
+    }
+
+    address.sin6_family = AF_INET6;
+    memcpy(address.sin6_addr.s6_addr,
+        ((sockaddr_in6*) addr_result->ai_addr)->sin6_addr.s6_addr, S6_ADDR_LEN);
+    address.sin6_port = htons((uint16_t) port);
+
+    success = get_socket_tcp(sock, addr_result);
+
+    freeaddrinfo(addr_result);
+
+    return success;
 }

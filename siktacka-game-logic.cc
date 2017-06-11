@@ -187,6 +187,8 @@ game_state new_game(std::vector<std::string> player_names, server_params &sp) {
             if (gs.snakes.size() <= 1) {
 
                 end_game(gs, sp);
+
+                break;
             }
         }
     }
@@ -244,6 +246,8 @@ void round(game_state &gs, server_params &sp, std::vector<int8_t> &dir_table) {
             if (gs.snakes.size() <= 1) {
 
                 end_game(gs, sp);
+
+                break;
             }
         }
     }

@@ -72,6 +72,9 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
     std::vector<std::string> names;
 
     for (event ev : msg_stc.events) {
+        if (ev.event_no < cp.next_expected_event_no)
+            continue;
+
         switch(ev.event_type) {
             case NEW_GAME:
                 result = decompose_new_game(ev.event_data, x, y, names);
@@ -231,22 +234,29 @@ int main(int argc, char *argv[]) {
 
     print_client_params(cp);
 
+    /*
     if (!establish_address(server_address, cp.server_host, cp.server_port,
             server_addr_result))
         return 1;
 
+
     if (!get_socket(server_sock))
         return 1;
-
+        */
     if (!establish_address(ui_address, cp.ui_host, cp.ui_port, ui_addr_result))
         return 1;
 
-    if (!get_socket_tcp(ui_sock, ui_addr_result))
-        return 1;
+        std::cout << ui_addr_result->ai_addr << std::endl;
 
 
-    freeaddrinfo(server_addr_result);
+    //if (!get_socket_tcp(ui_sock, ui_addr_result))
+    //    return 1;
+
+
+    //freeaddrinfo(server_addr_result);
     freeaddrinfo(ui_addr_result);
+
+    /*
 
     int8_t direction = 0;
 
@@ -281,6 +291,8 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
     }
+
+    */
 
     return 1;
 }

@@ -36,18 +36,21 @@ struct player {
     std::string name;
     uint64_t last_sent;
     int8_t direction;
+    uint32_t expected_no;
     uint8_t id;
 
     player() {}
 
     player(bool connected, sockaddr_in6 address, uint64_t session_id,
-                std::string name, uint64_t last_sent, int8_t direction) :
+                std::string name, uint64_t last_sent, int8_t direction,
+                uint32_t expected_no) :
                 connected(connected),
                 address(address),
                 session_id(session_id),
                 name(name),
                 last_sent(last_sent),
                 direction(direction),
+                expected_no(expected_no),
                 id(MAX_PLAYERS) {
 
         if (direction != 0)
@@ -63,6 +66,54 @@ struct stats {
     int active;
     int inactive;
 };
+
+
+
+void send_client(pollfd &sock, uint32_t event_no, std::vector<event> &events,
+            sockaddr_in6 &client_address, uint32_t game_id,
+            std::vector<uint8_t> &stringifed, std::vector<std::string> &event_string) {
+
+    uint32_t i = event_no;
+    message_stc msg;
+    std::string to_send;
+
+    while (i < events.size()) {
+
+        to_send = "";
+
+        append_data<uint32_t>(game_id, to_send);
+
+        for (; i < events.size(); i++) {
+
+            if (stringifed[i] == 0) {
+
+                event_string[i] = event_str(events[i]);;
+                stringifed[i] = 1;
+            }
+
+            if (to_send.size() + event_string[i].size() > MAX_UDP_DATA)
+                break;
+
+            to_send += event_string[i];
+        }
+
+        send_string(sock, to_send, client_address);
+    }
+}
+
+
+void broadcast(uint32_t game_id, std::vector<event> &events,
+            std::vector<player> players, pollfd &sock) {
+
+    std::vector<uint8_t> stringifed(events.size());
+
+    std::vector<std::string> event_string(events.size());
+
+    for (player p : players) {
+        send_client(sock, p.expected_no, events, p.address, game_id,
+            stringifed, event_string);
+    }
+}
 
 
 bool same_addr(sockaddr_in6 a1, sockaddr_in6 a2) {
@@ -134,6 +185,7 @@ int check_existing(std::vector<player> &players, stats &sta,
 
             players[i].direction = msg_cts.turn_direction;
             players[i].session_id = msg_cts.session_id;
+            players[i].expected_no = msg_cts.next_expected_event_no;
             players[i].last_sent = current_us();
 
             if (msg_cts.turn_direction != 0 && players[i].ready == 0) {
@@ -188,7 +240,8 @@ int seek_place(std::vector<player> &players, stats &sta,
         if (!players[i].connected) {
 
             players[i] = player(true, client_address, msg_cts.session_id,
-                        msg_cts.player_name, current_us(), msg_cts.turn_direction);
+                        msg_cts.player_name, current_us(), msg_cts.turn_direction,
+                        msg_cts.next_expected_event_no);
 
             sta.connected ++;
 
@@ -210,32 +263,6 @@ int seek_place(std::vector<player> &players, stats &sta,
     }
 
     return MAX_PLAYERS;
-}
-
-
-void send_client(pollfd &sock, uint32_t event_no, std::vector<event> events,
-            sockaddr_in6 &client_address, uint32_t game_id) {
-
-    uint32_t index = 0;
-    uint32_t count;
-    message_stc msg;
-    std::string to_send;
-
-    while (index < events.size() && events[index].event_no < event_no)
-        index++;
-
-    msg.game_id = game_id;
-
-    msg.events = std::vector<event>(events.begin() + index, events.end());
-
-    while (index < events.size()) {
-
-        count = message_stc_str(msg, to_send, index);
-
-        index += count;
-
-        send_string(sock, to_send, client_address);
-    }
 }
 
 
@@ -268,8 +295,11 @@ int receive_msg_cts(bool in_game, pollfd &sock, std::vector<player> &players,
 
     if ((uint32_t) pos < MAX_PLAYERS) {
         if (in_game) {
+            std::vector<uint8_t> stringifed(events.size());
+            std::vector<std::string> event_string(events.size());
+
             send_client(sock, msg_cts.next_expected_event_no, events,
-                    client_address, game_id);
+                    client_address, game_id, stringifed, event_string);
         }
         return 1;
     }
@@ -388,6 +418,8 @@ int main(int argc, char *argv[]) {
 
             game_state gs = new_game(player_names, sp);
 
+            broadcast(gs.game_id, gs.all_events, players, sock);
+
             last_round = current_us();
 
             while (true) {
@@ -407,6 +439,8 @@ int main(int argc, char *argv[]) {
                 prepare_dir_table(dir_table, players);
 
                 round(gs, sp, dir_table);
+
+                broadcast(gs.game_id, gs.all_events, players, sock);
 
                 if (gs.all_events.back().event_type == GAME_OVER)
                     break;
