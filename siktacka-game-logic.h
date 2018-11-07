@@ -11,6 +11,9 @@
 
 #include "siktacka-communication-server.h"
 
+// game logic as seen by server
+
+// shorthand for position of snake's head
 struct spot {
     uint32_t x;
     uint32_t y;
@@ -20,14 +23,13 @@ struct spot {
     spot(uint32_t x, uint32_t y) : x(x), y(y) {}
 };
 
-
+// head of the snake, representing player
 struct snake {
     uint8_t id;
     std::string player_name;
     long double x;
     long double y;
     long double direction;
-
 
     snake() {}
 
@@ -57,10 +59,11 @@ struct game_state {
                 map(map) {}
 };
 
+// start a new game
+game_state new_game(std::vector<std::string> &player_names, server_params &sp);
 
-game_state new_game(std::vector<std::string> player_names, server_params &sp);
-
-void round(game_state &gs, server_params &sp, std::vector<int8_t> &dir_table);
+// conduct a round of game
+void round(game_state &gs, server_params &sp);
 
 
 #endif /* SIKTACKA_GAME_SERVER */

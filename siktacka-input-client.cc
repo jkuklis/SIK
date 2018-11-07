@@ -9,11 +9,6 @@
 #include "siktacka-input-client.h"
 
 
-void print_client_params(client_params cp) {
-    std::cout << cp.player_name << " " << cp.server_host << " " << cp.server_port
-        << " " << cp.ui_host << " " << cp.ui_port << std::endl;
-}
-
 bool get_port(std::string &port_str, client_params &cp, bool server) {
     uint32_t port;
     constraints<uint32_t> constr;
@@ -21,12 +16,15 @@ bool get_port(std::string &port_str, client_params &cp, bool server) {
     if (!string_to_int(port_str, port))
         return false;
 
+
     std::string helper = (server ? "server" : "gui");
 
     constr = constraints<uint32_t>("port of " + helper, MIN_PORT, MAX_PORT);
 
+
     if (!checked_constraints<uint32_t>(port, constr))
         return false;
+
 
     if (server)
         cp.server_port = port;
@@ -41,6 +39,7 @@ bool check_host(std::string &str, client_params &cp, bool server) {
 
     std::vector<std::string> parts = split_to_vector(str, ':');
 
+    // possible port number involved
     if (parts.size() == 2) {
         std::string port_str = parts.back();
 
@@ -50,10 +49,12 @@ bool check_host(std::string &str, client_params &cp, bool server) {
             return false;
     }
 
+
     if (str[str.length() - 1] == '.') {
         std::cout << "IP address ends with additional dot\n";
         return false;
     }
+
 
     if (server)
         cp.server_host = str;

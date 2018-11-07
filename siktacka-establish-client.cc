@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <algorithm>
 #include <assert.h>
+#include <netinet/tcp.h>
 
 #include "siktacka-consts.h"
 #include "siktacka-establish-client.h"
@@ -59,11 +60,23 @@ bool get_socket_tcp(pollfd &sock, addrinfo *addr_result) {
     sock.events = POLLIN;
     sock.revents = 0;
 
-    sock.fd = socket(addr_result->ai_family, addr_result->ai_socktype, addr_result->ai_protocol);
+    sock.fd = socket(addr_result->ai_family, addr_result->ai_socktype,
+                    addr_result->ai_protocol);
     if (sock.fd < 0) {
         std::cout << "Failed to open gui socket\n";
         return false;
     }
+
+    // attempt to disable Naggle's algorithm
+    int flag = 1;
+    int result = setsockopt(sock.fd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag,
+                            sizeof(int));
+
+    if (result < 0) {
+        std::cout << "Failed to disable Naggle's algorithm\n";
+        return false;
+    }
+
 
     if (connect(sock.fd, addr_result->ai_addr, addr_result->ai_addrlen) < 0) {
         std::cout << "Failed to connect\n";
@@ -80,7 +93,6 @@ bool establish_connection_tcp(sockaddr_in6 &address, std::string host, uint32_t 
     bool success;
 
     memset(&addr_hints, 0, sizeof(addrinfo));
-    //addr_hints.ai_family = AF_INET6;
     addr_hints.ai_socktype = SOCK_STREAM;
     addr_hints.ai_protocol = IPPROTO_TCP;
 

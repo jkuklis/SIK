@@ -7,6 +7,8 @@
 #include <string.h>
 #include <iostream>
 
+
+// structure to check constraints' fulfillment
 template <typename T>
 struct constraints {
     std::string param_name;
@@ -52,6 +54,7 @@ std::vector<std::string> split_to_vector(std::string &str, char delimiter_char,
             uint32_t len = 0);
 
 
+// append data to str, from raw bytes
 template <typename T>
 void append_data(T data, std::string &str,
             bool big_endian = true, uint32_t bytes = 0) {
@@ -76,6 +79,7 @@ void append_data(T data, std::string &str,
 }
 
 
+// get numeric value from raw bytes
 template <typename T>
 T parse_number(std::string &str, uint32_t begin = 0,
             uint32_t end = (uint32_t)(-1), bool big_endian = true) {
@@ -99,6 +103,7 @@ T parse_number(std::string &str, uint32_t begin = 0,
 }
 
 
+// append a decimal representation of value to string
 template <typename T>
 bool append_value(T value, std::string &str) {
     std::string value_str;
@@ -106,8 +111,6 @@ bool append_value(T value, std::string &str) {
     value_str = std::to_string(value);
 
     str += value_str;
-
-    str += ' ';
 
     return true;
 }

@@ -14,4 +14,5 @@ bool get_socket_tcp(pollfd &sock, addrinfo *addr_result);
 bool establish_connection_tcp(sockaddr_in6 &address, std::string host, uint32_t port,
                             pollfd &sock);
 
+
 #endif /* SIKTACKA_ESTABLISH_CLIENT */

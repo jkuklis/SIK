@@ -7,7 +7,7 @@
 #include "siktacka-input-server.h"
 
 
-void send_string(pollfd &sock, std::string str, sockaddr_in6 &addr) {
+void send_string(pollfd &sock, std::string &str, sockaddr_in6 &addr) {
     int flags = 0;
     socklen_t snda_len = (socklen_t) sizeof(addr);
 
@@ -19,11 +19,6 @@ void send_string(pollfd &sock, std::string str, sockaddr_in6 &addr) {
     assert(len == sndlen);
 }
 
-
-void print_server_params(server_params sp) {
-    std::cout << sp.width << " " << sp.height << " " << sp.port << " " \
-                << sp.speed << " " << sp.turn << " " << sp.random << std::endl;
-}
 
 bool fill_server_params(server_params &sp, int argc, char *argv[]) {
     char c;

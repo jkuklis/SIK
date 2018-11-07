@@ -3,6 +3,7 @@
 #include "siktacka-input.h"
 #include "siktacka-consts.h"
 
+
 bool is_numeric(std::string &str) {
 
     if (str.empty())
@@ -12,8 +13,6 @@ bool is_numeric(std::string &str) {
                 [](unsigned char c) { return ::isdigit(c); });
 }
 
-
-// TODO update uint32_t
 
 bool string_to_int(std::string &str, uint32_t &result) {
     int64_t tmp;
@@ -84,6 +83,7 @@ bool check_player_name(std::string &str, bool print) {
 
     return correct;
 }
+
 
 std::vector<std::string> split_to_vector(std::string &str, char delimiter_char,
             uint32_t len) {

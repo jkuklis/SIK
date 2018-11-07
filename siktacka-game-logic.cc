@@ -10,8 +10,8 @@
 #include "siktacka-game-logic.h"
 #include "siktacka-consts.h"
 
-// TODO event arguments
 
+// specific random generator
 uint32_t next_rand(uint32_t rand) {
     uint64_t result = (uint64_t) rand * 279470273;
 
@@ -21,6 +21,7 @@ uint32_t next_rand(uint32_t rand) {
 }
 
 
+// gets value of and updates server's randomizing value
 void rand(uint32_t &var, server_params &sp) {
     var = sp.random;
 
@@ -28,6 +29,7 @@ void rand(uint32_t &var, server_params &sp) {
 }
 
 
+// get float from range, add a translation
 long double rand_range(uint32_t modulus, long double correction, server_params &sp) {
     uint32_t coord;
     long double coord_fl;
@@ -59,19 +61,18 @@ void place_snake(snake &player, server_params &sp) {
 }
 
 
-
-// TODO inline ?
-
 inline spot map_position(snake &player) {
     return spot((uint32_t)(player.x), (uint32_t)(player.y));
 }
 
 
+// check if position is free to take by a snake
 inline bool is_free(spot position, std::vector<std::vector<uint8_t> > &map,
             server_params &sp) {
     return (position.x < sp.width && position.y < sp.height
                 && map[position.y][position.x] == 0);
 }
+
 
 
 void make_map(game_state &gs, server_params &sp) {
@@ -94,23 +95,18 @@ void add_snake(std::string &name, uint8_t &player_id, game_state &gs) {
 }
 
 
-void add_snakes(std::vector<std::string> player_names, game_state &gs) {
+void add_snakes(std::vector<std::string> &player_names, game_state &gs) {
 
     uint8_t player_id = 0;
 
-    // server should sort players
-    //std::multiset<std::string> names(player_names.begin(), player_names.end());
-
     for (std::string name : player_names) {
 
-        // TODO - player list should not contain empty names
-        // if (name != "")
         add_snake(name, player_id, gs);
     }
 }
 
 
-void init_game(std::vector<std::string> player_names, game_state &gs,
+void init_game(std::vector<std::string> &player_names, game_state &gs,
             server_params &sp) {
     event ev;
 
@@ -158,7 +154,7 @@ void end_game(game_state &gs, server_params &sp) {
 }
 
 
-game_state new_game(std::vector<std::string> player_names, server_params &sp) {
+game_state new_game(std::vector<std::string> &player_names, server_params &sp) {
 
     game_state gs;
     snake player;
@@ -197,13 +193,14 @@ game_state new_game(std::vector<std::string> player_names, server_params &sp) {
 }
 
 
+// move snake by 1 unit
 void move_snake(snake &player) {
     player.x += cos(player.direction * PI / 180);
     player.y += sin(player.direction * PI / 180);
 }
 
 
-void round(game_state &gs, server_params &sp, std::vector<int8_t> &dir_table) {
+void round(game_state &gs, server_params &sp) {
 
     snake player;
     spot before;
@@ -212,17 +209,6 @@ void round(game_state &gs, server_params &sp, std::vector<int8_t> &dir_table) {
     for (auto it = gs.snakes.begin(); it != gs.snakes.end(); ) {
 
         spot before = map_position(*it);
-
-        switch(dir_table[it->id]) {
-
-            case -1:
-                it->direction -= sp.turn;
-                break;
-
-            case 1:
-                it->direction += sp.turn;
-                break;
-        }
 
         move_snake(*it);
 

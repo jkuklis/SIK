@@ -2,9 +2,10 @@
 #define SIKTACKA_CONSTS
 
 #include <string>
-//#include <limits>
 #include <time.h>
 #include <stdint.h>
+
+// all constant values used by siktacka
 
 const uint32_t DEFAULT_WIDTH = 800;
 const uint32_t DEFAULT_HEIGHT = 600;
@@ -22,15 +23,12 @@ const uint32_t MIN_SPEED = 1;
 const uint32_t MAX_SPEED = 200;
 const uint32_t MIN_TURN = 1;
 const uint32_t MAX_TURN = 200;
-//const int MIN_INT = std::numeric_limits<int>::min();
-//const int MAX_INT = std::numeric_limits<int>::max();
 
 const uint32_t MAX_UINT32 = 4294967295;
 
 const std::string DEFAULT_HOST = "localhost";
 const uint32_t DEFAULT_GUI_PORT = 12346;
 
-// prefered 1
 const uint32_t MIN_LENGTH = 0;
 const uint32_t MAX_LENGTH = 64;
 

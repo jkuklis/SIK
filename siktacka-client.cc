@@ -19,7 +19,13 @@
 #include "siktacka-communication-gui.h"
 #include "siktacka-input-server.h"
 
-int check_sock(pollfd &sock) {
+
+// check if socket contains messages
+// return values:
+// 1 _ data to receive
+// 0 _ no data to receive
+// -1 _ error
+int check_socket(pollfd &sock) {
 
     int ret;
     sock.revents = 0;
@@ -31,26 +37,22 @@ int check_sock(pollfd &sock) {
         return -1;
     }
 
-
-    if (ret == 0)
-        return 0;
-
-    if (!(sock.revents && POLLIN)) {
+    if (ret == 0 || !(sock.revents && POLLIN)) {
         return 0;
     }
 
     return 1;
 }
 
-
+// receive message from socket and parse it
 int process_msg_stc(pollfd &sock, sockaddr_in6 &server_address,
                 message_stc &msg_stc) {
 
+    std::string server_str;
     int len;
     int flags;
     socklen_t rcva_len;
     char server_buf[MAX_UDP_DATA];
-    std::string server_str;
 
     flags = 0;
     rcva_len = (socklen_t) sizeof(server_address);
@@ -64,7 +66,8 @@ int process_msg_stc(pollfd &sock, sockaddr_in6 &server_address,
 
 }
 
-bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
+// send message to gui and update client's expected event number
+bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &players,
             client_params &cp, pollfd &sock) {
 
     bool result;
@@ -73,7 +76,6 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
     uint32_t y;
     uint8_t id;
     std::string str;
-    std::vector<std::string> names;
 
     for (event ev : msg_stc.events) {
         if (ev.event_no < cp.next_expected_event_no)
@@ -81,7 +83,7 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
 
         switch(ev.event_type) {
             case NEW_GAME:
-                result = decompose_new_game(ev.event_data, x, y, names);
+                result = decompose_new_game(ev.event_data, x, y, players);
                 if (!result)
                     break;
 
@@ -93,16 +95,20 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
                 append_value<uint32_t>(y, str);
                 str += ' ';
 
-                for (uint32_t i = 0; i < names.size() - 1; i++) {
-                    str += names[i];
+                for (uint32_t i = 0; i < players.size() - 1; i++) {
+                    str += players[i];
                     str += ' ';
                 }
 
-                str += names.back();
+                str += players.back();
+                str += '\n';
 
                 len = str.length();
-                if (write(sock.fd, str.c_str(), len) < 0)
+
+                if (write(sock.fd, str.c_str(), len) < 0) {
+                    std::cout << "FAIL! NEW_GAME\n";
                     return 0;
+                }
 
                 break;
 
@@ -113,17 +119,22 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
 
                 str = "PIXEL ";
 
-                append_value<uint8_t>(id, str);
-                str += ' ';
-
                 append_value<uint32_t>(x, str);
                 str += ' ';
 
                 append_value<uint32_t>(y, str);
+                str += ' ';
+
+                str += players[id];
+                str += '\n';
 
                 len = str.length();
-                if (write(sock.fd, str.c_str(), len) < 0)
+
+                if (write(sock.fd, str.c_str(), len) < 0){
+                    std::cout << "FAIL! PIXEL\n";
                     return 0;
+                }
+
 
                 break;
 
@@ -132,11 +143,15 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
 
                 str = "PLAYER_ELIMINATED ";
 
-                str += id;
+                str += players[id];
+                str += '\n';
 
                 len = str.length();
-                if (write(sock.fd, str.c_str(), len) < 0)
+
+                if (write(sock.fd, str.c_str(), len) < 0){
+                    std::cout << "FAIL! PLAYER_ELIMINATED\n";
                     return 0;
+                }
 
                 break;
 
@@ -155,37 +170,37 @@ bool send_to_gui(message_stc &msg_stc, std::vector<std::string> &player_names,
 
 
 int try_receive_server_msg(pollfd &server_sock, pollfd &ui_sock,
-            sockaddr_in6 &server_address, std::vector<std::string> &player_names,
+            sockaddr_in6 &server_address, std::vector<std::string> &players,
             uint32_t &game_id, client_params &cp) {
 
     message_stc msg_stc;
 
     int res;
 
-    res = check_sock(server_sock);
+    res = check_socket(server_sock);
 
     if (res != 1)
         return res;
 
     if (!process_msg_stc(server_sock, server_address, msg_stc))
-        return 0;
+        return -1;
 
-    if (msg_stc.game_id < game_id)
-        return 0;
+    if (msg_stc.game_id != game_id) {
 
-    if (msg_stc.game_id > game_id) {
         if (msg_stc.events.front().event_type != NEW_GAME)
             return 0;
+
         else
             game_id = msg_stc.game_id;
     }
 
-    send_to_gui(msg_stc, player_names, cp, ui_sock);
+    send_to_gui(msg_stc, players, cp, ui_sock);
 
     return 1;
 }
 
 
+// for comparison with string literals in set_direction
 bool same_str(char *buf, std::string str) {
     bool result = true;
 
@@ -200,7 +215,7 @@ bool same_str(char *buf, std::string str) {
 }
 
 
-bool change_direction(char *buf, int8_t &direction) {
+bool set_direction(char *buf, int8_t &direction) {
     std::string str;
 
     str = "LEFT_KEY_DOWN";
@@ -230,7 +245,7 @@ bool change_direction(char *buf, int8_t &direction) {
 int try_receive_gui_msg(pollfd &sock, int8_t &direction) {
     int res;
 
-    res = check_sock(sock);
+    res = check_socket(sock);
 
     if (res != 1)
         return res;
@@ -242,7 +257,7 @@ int try_receive_gui_msg(pollfd &sock, int8_t &direction) {
     if (read(sock.fd, buf, buf_size) < 0)
         return 0;
 
-    change_direction(buf, direction);
+    set_direction(buf, direction);
 
     return 1;
 }
@@ -253,16 +268,17 @@ int main(int argc, char *argv[]) {
     int res;
 
     client_params cp;
+
     pollfd server_sock;
     pollfd ui_sock;
+
     sockaddr_in6 server_address;
     sockaddr_in6 ui_address;
 
+    message_cts msg_cts;
+
     if (!fill_client_params(cp, argc, argv))
         return 1;
-
-    print_client_params(cp);
-
 
     if (!establish_address_udp(server_address, cp.server_host, cp.server_port))
         return 1;
@@ -273,48 +289,60 @@ int main(int argc, char *argv[]) {
     if (!establish_connection_tcp(ui_address, cp.ui_host, cp.ui_port, ui_sock))
         return 1;
 
+
     int8_t direction = 0;
-
-    uint64_t session_id = current_us();
-
-    message_cts msg_cts;
-
-    uint64_t last_sent = current_us();
-
     uint32_t game_id = 0;
 
+    uint64_t session_id = current_us();
+    uint64_t last_sent = current_us();
+
     std::vector<std::string> players;
+
 
     while(true) {
 
         msg_cts = message_cts(session_id, direction, cp.next_expected_event_no,
-                cp.player_name);
+                                cp.player_name);
 
         std::string msg_str = message_cts_str(msg_cts);
 
         send_string(server_sock, msg_str, server_address);
 
-        last_sent += 20000;
 
-        while (current_us() - last_sent > 20000) {
+        // wait 20ms between sending
+        while (current_us() - last_sent < 20000) {
 
-            res = try_receive_server_msg(server_sock, ui_sock, server_address,
+            // gather all available data
+            res = 1;
+
+            while (res == 1)
+                res = try_receive_server_msg(server_sock, ui_sock, server_address,
                                         players, game_id, cp);
 
             if (res == -1)
                 return 1;
 
-            res = try_receive_gui_msg(ui_sock, direction);
+
+            // gather all available data
+            res = 1;
+
+            while (res == 1)
+                res = try_receive_gui_msg(ui_sock, direction);
 
             if (res == -1)
                 return 1;
 
-            if (res == 1)
-                std::cout << (int) direction << "\n";
+
+            // to avoid busy-waiting
+            int64_t diff = 20000 - (current_us() - last_sent);
+
+            if (diff > 0)
+                usleep(diff);
         }
+
+        // last block should have taken 20ms
+        last_sent += 20000;
     }
-
-
 
     return 1;
 }

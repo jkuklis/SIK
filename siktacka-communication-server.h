@@ -32,6 +32,7 @@ struct event {
 };
 
 
+// message structure, sent to client by server
 struct message_stc {
     uint32_t game_id;
     std::vector<event> events;
@@ -44,6 +45,7 @@ struct message_stc {
 };
 
 
+// message structure, sent to server by client
 struct message_cts {
     uint64_t session_id;
     int8_t turn_direction;
@@ -60,7 +62,7 @@ struct message_cts {
                 player_name(player_name) {}
 };
 
-// NOTE: event_no is useless, always 0 with new_game
+
 event event_new_game(std::vector<std::string> &player_names, uint32_t event_no,
             server_params &sp);
 
@@ -101,5 +103,6 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y);
 
 
 uint64_t current_us();
+
 
 #endif /* SIKTACKA_COMMUNICATION_SERVER */

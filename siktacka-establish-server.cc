@@ -5,6 +5,7 @@
 #include "siktacka-consts.h"
 #include "siktacka-establish-server.h"
 
+
 bool establish_address(sockaddr_in6 &address, int port) {
     address.sin6_family = AF_INET6;
 	address.sin6_port = htons(port);
@@ -15,6 +16,7 @@ bool establish_address(sockaddr_in6 &address, int port) {
 
     return true;
 }
+
 
 bool get_socket(pollfd &sock) {
     sock.fd = -1;
@@ -30,7 +32,6 @@ bool get_socket(pollfd &sock) {
     return true;
 }
 
-// NOTE : maybe close sockets?
 
 bool bind_socket(pollfd &sock, sockaddr_in6 &address) {
     if (bind(sock.fd, (sockaddr*) &address, (socklen_t) sizeof(address)) < 0) {

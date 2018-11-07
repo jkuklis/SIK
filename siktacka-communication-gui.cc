@@ -7,9 +7,6 @@
 #include "siktacka-consts.h"
 #include "siktacka-communication-gui.h"
 
-// TODO check, if maxx etc have suitable length
-// TODO templete constraints, now ints
-
 
 bool decompose_players(std::string &player_names,
             std::vector<std::string> &players) {
@@ -19,7 +16,9 @@ bool decompose_players(std::string &player_names,
     if (players.back() != "")
         return false;
 
+    // last name is followed by '\0' as well
     players.pop_back();
+
 
     for (std::string name : players) {
 
@@ -29,9 +28,9 @@ bool decompose_players(std::string &player_names,
 
     std::vector<std::string> sorted_names (players.begin(), players.end());
 
-
     std::sort(sorted_names.begin(), sorted_names.end());
 
+    // check, if message contained sorted list
     for (uint32_t i = 0; i < players.size(); i++) {
         if (players[i] != sorted_names[i])
             return false;
@@ -78,33 +77,4 @@ bool decompose_pixel(std::string &event_data, uint8_t &id,
     y = parse_number<uint32_t>(event_data, 5, 9);
 
     return true;
-}
-
-
-
-bool message_to_gui(event &ev, std::string &str, std::string name) {
-
-    bool result;
-
-    str = "";
-
-    switch(ev.event_type) {
-
-        case NEW_GAME:
-            //result = new_game_msg(ev.event_data, str);
-            break;
-
-        case PIXEL:
-            //result = pixel_msg(ev.event_data, str, name);
-            break;
-
-        case PLAYER_ELIMINATED:
-            //result = player_eliminated_msg(ev.event_data, str, name);
-            break;
-
-        default:
-            result = false;
-    }
-
-    return result;
 }

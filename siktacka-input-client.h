@@ -4,6 +4,7 @@
 #include <string>
 #include "siktacka-consts.h"
 
+
 struct client_params {
     std::string player_name;
     std::string server_host;
@@ -13,8 +14,8 @@ struct client_params {
     uint32_t next_expected_event_no;
 };
 
-void print_client_params(client_params cp);
-
+// fill and check correctness of client parameters
 bool fill_client_params(client_params &cp, int argc, char *argv[]);
+
 
 #endif /* SIKTACKA_INPUT_CLIENT */

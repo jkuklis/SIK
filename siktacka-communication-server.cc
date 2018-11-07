@@ -9,7 +9,9 @@
 #include "siktacka-input.h"
 
 
+// current microseconds from 1970-01-01 00:00:00 +0000 (UTC)
 uint64_t current_us() {
+
     timeval start;
     uint64_t result;
 
@@ -21,8 +23,9 @@ uint64_t current_us() {
 }
 
 
-uint32_t crc32(const unsigned char *buf, size_t len)
-{
+// strange magic to calculate a kind of checksum
+// polynomial is taken from the standard incorporated within Ethernet
+uint32_t crc32(const unsigned char *buf, size_t len) {
     uint32_t crc = 0;
 
     int k;
@@ -36,7 +39,7 @@ uint32_t crc32(const unsigned char *buf, size_t len)
     return ~crc;
 }
 
-
+// 'checksum' of event's fields, without crc32 itself
 uint32_t event_crc32(uint32_t len, uint32_t event_no, uint8_t event_type,
             std::string &event_data) {
 
@@ -162,19 +165,19 @@ uint32_t message_stc_str(message_stc &msg, std::string &str,
 
     append_data<uint32_t>(msg.game_id, str);
 
-    // TODO server must check if with new game
-    // there should be fewer players (512 B)
-
+    // note: iteration starts from event with number first
     for (i = first; i < msg.events.size(); i++) {
         ev_str = event_str(msg.events[i]);
 
+        // if so, after appending another ev_str string to send would become
+        // too long to be sent by our server
         if (str.length() + ev_str.length() > MAX_UDP_DATA)
             break;
 
-        //str += ' ';
         str += ev_str;
     }
 
+    // how many events have been included in this message
     count = i - first;
 
     return count;
@@ -240,18 +243,19 @@ std::string pixel_str(uint8_t player_number, uint32_t x, uint32_t y) {
 }
 
 
+// correct data lengths for events
 bool correct_data(uint32_t len, uint8_t event_type, std::string &event_data) {
     switch(event_type) {
-        case 0:
+        case NEW_GAME:
             return true;
 
-        case 1:
+        case PIXEL:
             return (len == 14);
 
-        case 2:
+        case PLAYER_ELIMINATED:
             return (len == 6);
 
-        case 3:
+        case GAME_OVER:
             return (len == 5);
 
         default:
@@ -277,12 +281,7 @@ bool event_from_str(event &ev, std::string &str) {
     if (!correct_data(len, event_type, event_data))
         return false;
 
-    //uint32_t crc32 = parse_number<uint32_t>(str, 4 + len, 4 + len + 4);
-
     ev = event(len, event_no, event_type, event_data);
-
-    //if (crc32 != ev.crc32)
-    //    return false;
 
     return true;
 }
@@ -318,6 +317,10 @@ bool message_stc_from_str(std::string &str, message_stc &msg) {
         if (ev.crc32 != event_crc32(ev.len, ev.event_no, ev.event_type,
                     ev.event_data)) {
             break;
+        }
+
+        if (ev.event_type > MAX_EVENT_TYPE) {
+            continue;
         }
 
         next += len + 8;

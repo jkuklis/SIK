@@ -17,7 +17,8 @@
 #include "siktacka-consts.h"
 #include "siktacka-input.h"
 
-void send_string(pollfd &sock, std::string str, sockaddr_in6 &addr);
+// send str to address via a socket
+void send_string(pollfd &sock, std::string &str, sockaddr_in6 &addr);
 
 
 struct server_params {
@@ -29,8 +30,9 @@ struct server_params {
     uint32_t random = time(NULL); // rand() seed
 };
 
-void print_server_params(server_params sp);
 
+// fill and check correctness of server parameters
 bool fill_server_params(server_params &sp, int argc, char *argv[]);
+
 
 #endif /* SIKTACKA_INPUT_SERVER */
